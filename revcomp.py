@@ -49,8 +49,8 @@ if st.button("🔍 Analizi Başlat"):
                 st.write(f"**Amplikon Uzunluğu:** {amplikon_uzunlugu} bp")
             with col2:
                 st.subheader("🧪 PCR Koşulları")
-                st.write(f"**Tm (Forward):** {mt.Tm_Wallace(primer_f):.2f} °C | GC: {gc(primer_f):.2f}%")
-                st.write(f"**Tm (Reverse):** {mt.Tm_Wallace(primer_r):.2f} °C | GC: {gc(primer_r):.2f}%")
+                st.write(f"**Tm (Forward):** {mt.Tm_Wallace(primer_f):.2f} °C | GC: {gc_fraction(primer_f)*100:.2f}%")
+                st.write(f"**Tm (Reverse):** {mt.Tm_Wallace(primer_r):.2f} °C | GC: {gc_fraction(primer_r)*100:.2f}%")
                 if probe:
                     st.write(f"**Tm (Prob):** {mt.Tm_Wallace(probe):.2f} °C | GC: {gc(probe):.2f}%")
 
