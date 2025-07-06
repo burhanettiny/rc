@@ -6,13 +6,10 @@ scipy
 mplcursors
 plotly
 reportlab
-kaleido
+kaleido>=0.2.1
 fpdf
 Pillow
 seaborn
 python-bidi
 arabic-reshaper
-kaleido>=0.2.1
-streamlit
-matplotlib
-biopython
+biopython>=1.78
