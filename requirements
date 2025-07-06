@@ -1,0 +1,15 @@
+streamlit
+pandas
+numpy
+matplotlib
+scipy
+mplcursors
+plotly
+reportlab
+kaleido
+fpdf
+Pillow
+seaborn
+python-bidi
+arabic-reshaper
+kaleido>=0.2.1
