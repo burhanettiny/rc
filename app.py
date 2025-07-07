@@ -14,15 +14,16 @@ st.markdown("Bu araç, birden fazla primer/prob seti ile PCR analizi yapmanızı
 # Kullanıcı girişi
 seq_input = st.text_area("🔢 DNA/RNA Sekansı", height=200).upper().replace(" ", "").replace("\n", "")
 molecule_type = st.selectbox("Molekül Tipi", ["DNA", "RNA"])
-
 if molecule_type == "RNA":
     seq_input = seq_input.replace("U", "T")
+
+# Metilasyon motifi
+methylation_motif = st.text_input("🧬 Metilasyon Motifi veya Sekansı (örneğin: CG)", value="CG").upper().replace("U", "T")
 
 # Primer set sayısı
 primer_set_count = st.number_input("🔢 Primer Seti Sayısı (Multiplex)", min_value=1, max_value=5, value=1, step=1)
 primer_sets = []
 
-# Kullanıcıdan primer/prob girişleri
 for i in range(primer_set_count):
     with st.expander(f"🧬 Primer Set {i+1}"):
         fwd = st.text_input(f"➡️ Forward Primer {i+1} (5'-3')", key=f"fwd_{i}").upper().replace("U", "T")
@@ -38,13 +39,21 @@ def find_positions(seq, subseq):
     match = re.search(subseq, seq)
     return (match.start(), match.end()) if match else (-1, -1)
 
-def highlight_sequence(seq, primer_sets, molecule_type, line_length=80):
+def analyze_methylation_sites(seq, motif):
+    matches = list(re.finditer(motif, seq))
+    positions = [(m.start(), m.end()) for m in matches]
+    count = len(matches)
+    coverage_percent = (sum(end - start for start, end in positions) / len(seq)) * 100 if seq else 0
+    return count, positions, coverage_percent
+
+def highlight_sequence(seq, primer_sets, molecule_type, methylation_motif=None, line_length=80):
     style = """
     <style>
     .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
-    .fwd { background-color: #90ee90; }   /* açık yeşil */
-    .rev { background-color: #ffcccb; }   /* açık kırmızı */
-    .prb { background-color: #add8e6; }   /* açık mavi */
+    .fwd { background-color: #90ee90; }
+    .rev { background-color: #ffcccb; }
+    .prb { background-color: #add8e6; }
+    .met { background-color: #ffff99; }
     </style>
     """
 
@@ -56,12 +65,10 @@ def highlight_sequence(seq, primer_sets, molecule_type, line_length=80):
     comp_seq = seq.translate(complement_map)
     comp_list = list(comp_seq)
 
-    # Primer yerleşim kontrolü: hangi zincirdeyse orayı boya
     for s in primer_sets:
         for label, primer in [('fwd', s["forward"]), ('rev', s["reverse"]), ('prb', s["probe"])]:
             if not primer:
                 continue
-
             rev_comp = reverse_complement(primer)
             if primer in seq:
                 start = seq.find(primer)
@@ -72,11 +79,14 @@ def highlight_sequence(seq, primer_sets, molecule_type, line_length=80):
                 for i in range(start, start + len(primer)):
                     bottom_tags[i] = label
 
+    if methylation_motif:
+        for match in re.finditer(methylation_motif, seq):
+            for i in range(match.start(), match.end()):
+                if top_tags[i] == '':
+                    top_tags[i] = 'met'
+
     def render_line(bases, tags):
-        return ''.join(
-            f'<span class="{tag}">{base}</span>' if tag else base
-            for base, tag in zip(bases, tags)
-        )
+        return ''.join(f'<span class="{tag}">{base}</span>' if tag else base for base, tag in zip(bases, tags))
 
     lines = []
     for i in range(0, len(seq), line_length):
@@ -87,7 +97,7 @@ def highlight_sequence(seq, primer_sets, molecule_type, line_length=80):
     full_html = f"{style}<div class='seq-box'>" + "<br><br>".join(lines) + "</div>"
     return full_html
 
-# Analiz başlatma
+# Analiz başlat
 if st.button("🔍 Analizi Başlat"):
     if not seq_input:
         st.error("Sekans girişi zorunludur.")
@@ -115,34 +125,38 @@ if st.button("🔍 Analizi Başlat"):
             Tm_r = mt.Tm_Wallace(rev)
             Ta = ((Tm_f + Tm_r) / 2) - 5
 
-            with st.container():
-                st.markdown(f"### 🧪 Primer Set {idx+1}")
-                st.write(f"**Forward Primer Pozisyonu:** {fwd_start}-{fwd_end}")
-                st.write(f"**Reverse Primer Pozisyonu:** {rev_start}-{rev_end}")
-                st.write(f"**Amplikon Uzunluğu:** {amplikon} bp")
-                st.write(f"**Tm (Forward):** {Tm_f:.2f} °C | GC: {gc_fraction(fwd)*100:.2f}%")
-                st.write(f"**Tm (Reverse):** {Tm_r:.2f} °C | GC: {gc_fraction(rev)*100:.2f}%")
-                if probe:
-                    st.write(f"**Tm (Prob):** {mt.Tm_Wallace(probe):.2f} °C | GC: {gc_fraction(probe)*100:.2f}%")
-                st.markdown(f"**🔹 Optimum Annealing Temperature (Ta):** {Ta:.2f} °C 🔥")
-                st.markdown("> **Formül:**  \n> Ta = ((Tm_forward + Tm_reverse) / 2) - 5")
+            st.markdown(f"### 🧪 Primer Set {idx+1}")
+            st.write(f"**Forward Primer Pozisyonu:** {fwd_start}-{fwd_end}")
+            st.write(f"**Reverse Primer Pozisyonu:** {rev_start}-{rev_end}")
+            st.write(f"**Amplikon Uzunluğu:** {amplikon} bp")
+            st.write(f"**Tm (Forward):** {Tm_f:.2f} °C | GC: {gc_fraction(fwd)*100:.2f}%")
+            st.write(f"**Tm (Reverse):** {Tm_r:.2f} °C | GC: {gc_fraction(rev)*100:.2f}%")
+            if probe:
+                st.write(f"**Tm (Prob):** {mt.Tm_Wallace(probe):.2f} °C | GC: {gc_fraction(probe)*100:.2f}%")
+            st.markdown(f"**🔹 Optimum Annealing Temperature (Ta):** {Ta:.2f} °C 🔥")
 
-        # Sekans görseli (yeni sistem)
-        st.subheader("🧬 Sekans Üzerinde Primer ve Prob Yerleşimi")
-        html = highlight_sequence(seq_input, primer_sets, molecule_type)
+        # Sekans görselleştirme
+        st.subheader("🧬 Sekans Üzerinde Primer, Prob ve Metilasyon Yerleşimi")
+        html = highlight_sequence(seq_input, primer_sets, molecule_type, methylation_motif)
         st.markdown(html, unsafe_allow_html=True)
 
-# 🔧 Otomatik PCR koşulu önerisi
+        # Metilasyon motif analizi
+        if methylation_motif:
+            st.subheader("🧪 Metilasyon Motifi Analizi")
+            count, positions, coverage = analyze_methylation_sites(seq_input, methylation_motif)
+            st.write(f"🔹 **Toplam {count} adet** '{methylation_motif}' motifi bulundu.")
+            st.write(f"🔸 **Sekansın %{coverage:.2f}** kadarı metilasyon bölgesi.")
+            st.markdown("📍 **Pozisyonlar:**")
+            for idx, (start, end) in enumerate(positions, 1):
+                st.markdown(f"- {idx}. bölge: {start}–{end}")
+
+# PCR döngüsü önerisi
 st.subheader("📋 Önerilen PCR Döngüsü")
-
-# Ta değerini önceki analizden al (yoksa 60 olarak varsay)
 Ta = ((Tm_f + Tm_r) / 2) - 5 if 'Tm_f' in locals() and 'Tm_r' in locals() else 60
-
 pcr_table = pd.DataFrame({
     "Adım": ["Denatürasyon", "Annealing", "Uzama"],
     "Sıcaklık (°C)": [95, round(Ta, 2), 72],
     "Süre (sn)": [30, 30, 60]
 })
-
 st.table(pcr_table)
 st.caption("🔁 Önerilen döngü sayısı: 35")
