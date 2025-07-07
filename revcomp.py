@@ -93,35 +93,29 @@ if st.button("🔍 Analizi Başlat"):
         ax.legend()
         st.pyplot(fig)
 # 🔎 Sekans içinde renklendirme
-def highlight_sequence(seq, highlights):
+def highlight_sequence_multiline(seq, highlights, line_length=80):
     html = ""
     last = 0
-    for start, end, color in sorted(highlights):
-        html += seq[last:start]
-        html += f"<span style='background-color:{color}; font-weight:bold'>{seq[start:end]}</span>"
-        last = end
-    html += seq[last:]
+    highlight_map = {}
+
+    # Önce her pozisyon için renkleri bir sözlükte işaretle
+    for start, end, color in highlights:
+        for i in range(start, end):
+            highlight_map[i] = color
+
+    # Her line_length kadar satır yap
+    for line_start in range(0, len(seq), line_length):
+        line_html = ""
+        for i in range(line_start, min(line_start + line_length, len(seq))):
+            base = seq[i]
+            if i in highlight_map:
+                line_html += f"<span style='background-color:{highlight_map[i]}; font-weight:bold'>{base}</span>"
+            else:
+                line_html += base
+        html += line_html + "<br>"
+
     return html
-
-highlight_regions = []
-
-for idx, s in enumerate(primer_sets):
-    fwd = s["forward"]
-    rev = s["reverse"]
-    prb = s["probe"]
-    rev_rc = reverse_complement(rev)
-
-    fwd_start, fwd_end = find_positions(seq_input, fwd)
-    rev_start, rev_end = find_positions(seq_input, rev_rc)
-    probe_start, probe_end = find_positions(seq_input, prb) if prb else (-1, -1)
-
-    if fwd_start != -1:
-        highlight_regions.append((fwd_start, fwd_end, primer_colors[idx]))
-    if rev_start != -1:
-        highlight_regions.append((rev_start, rev_end, primer_colors[idx]))
-    if probe_start != -1:
-        highlight_regions.append((probe_start, probe_end, probe_colors[idx]))
-
 st.subheader("🧬 Renklendirilmiş Sekans Görünümü")
-highlighted_html = highlight_sequence(seq_input, highlight_regions)
+
+highlighted_html = highlight_sequence_multiline(seq_input, highlight_regions, line_length=80)
 st.markdown(f"<div style='font-family:monospace; font-size:14px'>{highlighted_html}</div>", unsafe_allow_html=True)
