@@ -46,16 +46,42 @@ if st.button("🔍 Analizi Başlat"):
         st.error("Her primer seti için forward ve reverse primer gereklidir.")
     else:
         st.subheader("📐 Primer Seti Analizi")
-        fig, ax = plt.subplots(figsize=(12, 2))
-        ax.plot(range(len(seq_input)), [1]*len(seq_input), 'k-', lw=1)
+
+        all_positions = []
+        for idx, s in enumerate(primer_sets):
+            fwd = s["forward"]
+            rev = s["reverse"]
+            probe = s["probe"]
+            rev_rc = reverse_complement(rev)
+
+            fwd_start, fwd_end = find_positions(seq_input, fwd)
+            rev_start, rev_end = find_positions(seq_input, rev_rc)
+            probe_start, probe_end = find_positions(seq_input, probe) if probe else (-1, -1)
+
+            if fwd_start != -1: all_positions.extend([fwd_start, fwd_end])
+            if rev_start != -1: all_positions.extend([rev_start, rev_end])
+            if probe and probe_start != -1:
+                all_positions.extend([probe_start, probe_end])
+
+        if all_positions:
+            start = max(0, min(all_positions) - 20)
+            end = min(len(seq_input), max(all_positions) + 20)
+        else:
+            start, end = 0, min(200, len(seq_input))  # fallback gösterim
+
+        sub_seq = seq_input[start:end]
+        fig, ax = plt.subplots(figsize=(min(12, len(sub_seq)//10 + 2), 2))
+        ax.plot(range(start, end), [1]*(end - start), 'k-', lw=1)
+
+        # Sekans bazlarını yazdır
+        for i, base in enumerate(sub_seq):
+            ax.text(start + i, 1.05, base, fontsize=6, ha='center', va='bottom', color='black', rotation=90)
 
         for idx, s in enumerate(primer_sets):
             fwd = s["forward"]
             rev = s["reverse"]
             probe = s["probe"]
-
             rev_rc = reverse_complement(rev)
-            st.info(f"Set {idx+1}: Reverse primer 5'-3' yönünde girildiği için reverse complement alındı.")
 
             fwd_start, fwd_end = find_positions(seq_input, fwd)
             rev_start, rev_end = find_positions(seq_input, rev_rc)
@@ -82,20 +108,20 @@ if st.button("🔍 Analizi Başlat"):
                 st.markdown(f"**🔹 Optimum Annealing Temperature (Ta):** {Ta:.2f} °C 🔥")
                 st.markdown("> **Formül:**  \n> Ta = ((Tm_forward + Tm_reverse) / 2) - 5")
 
-            ax.plot(range(fwd_start, fwd_end), [1.2]*len(fwd), color=primer_colors[idx], lw=4, label=f"Set {idx+1} Forward")
-            ax.plot(range(rev_start, rev_end), [0.8]*len(rev_rc), color=primer_colors[idx], lw=4, label=f"Set {idx+1} Reverse")
+            ax.axvspan(fwd_start, fwd_end, color=primer_colors[idx], alpha=0.3, label=f"Set {idx+1} Forward")
+            ax.axvspan(rev_start, rev_end, color=primer_colors[idx], alpha=0.3, label=f"Set {idx+1} Reverse")
             if probe and probe_start != -1:
-                ax.plot(range(probe_start, probe_end), [1.4]*len(probe), color=probe_colors[idx], lw=4, label=f"Set {idx+1} Probe")
+                ax.axvspan(probe_start, probe_end, color=probe_colors[idx], alpha=0.3, label=f"Set {idx+1} Probe")
 
+        ax.set_xlim(start, end)
         ax.set_yticks([])
         ax.set_xlabel("Baz Pozisyonu")
         ax.set_title("Sekans Üzerinde Primer ve Prob Yerleşimi")
-        ax.legend()
+        ax.legend(loc="upper right", fontsize=7)
         st.pyplot(fig)
 
         # PCR Döngüsü
         st.subheader("🎛️ PCR Döngüsü Özelleştir")
-
         col1, col2 = st.columns(2)
         with col1:
             denaturation_temp = st.number_input("Denatürasyon Sıcaklığı (°C)", value=95)
