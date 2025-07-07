@@ -112,16 +112,4 @@ if st.button("🔍 Analizi Başlat"):
             "Süre (sn)": [denaturation_time, annealing_time, extension_time]
         })
 
-        st.subheader("📋 Özelleştirilmiş PCR Döngüsü")
-        st.table(pcr_table)
-
-        fig2, ax2 = plt.subplots(figsize=(6, 2))
-        colors = ["red", "blue", "green"]
-        heights = [1, 0.7, 0.9]
-        labels = ["Denatürasyon", "Annealing", "Uzama"]
-
-        for i in range(3):
-            ax2.barh(y=0, width=pcr_table["Süre (sn)"][i], left=sum(pcr_table["Süre (sn)"][:i]),
-                     color=colors[i], height=heights[i], label=labels[i])
-
-        st.pyplot(fig2)
+        st.pyplot
