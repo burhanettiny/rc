@@ -50,28 +50,32 @@ def highlight_sequence(seq, primer_sets, molecule_type, line_length=200):
     """
 
     seq_list = list(seq)
-    tags = [''] * len(seq)
+    top_tags = [''] * len(seq)
+    bottom_tags = [''] * len(seq)
 
-    # Sadece üst zinciri renklendir
+    # Komplement dizi (alt zincir)
+    complement_map = str.maketrans("ATGC", "TACG")
+    comp_seq = seq.translate(complement_map)
+    comp_list = list(comp_seq)
+
     for s in primer_sets:
-        fwd = s["forward"]
-        rev = s["reverse"]
-        probe = s["probe"]
-        rev_rc = reverse_complement(rev)
+        for label, primer in [('fwd', s["forward"]), ('rev', s["reverse"]), ('prb', s["probe"])]:
+            if not primer:
+                continue
 
-        fwd_start, fwd_end = find_positions(seq, fwd)
-        rev_start, rev_end = find_positions(seq, rev_rc)
-        probe_start, probe_end = find_positions(seq, probe) if probe else (-1, -1)
-
-        if fwd_start != -1:
-            for i in range(fwd_start, fwd_end):
-                tags[i] = 'fwd'
-        if rev_start != -1:
-            for i in range(rev_start, rev_end):
-                tags[i] = 'rev'
-        if probe and probe_start != -1:
-            for i in range(probe_start, probe_end):
-                tags[i] = 'prb'
+            rev_comp = reverse_complement(primer)
+            # Primer doğrudan referans dizideyse → üst zincire boya
+            if primer in seq:
+                start = seq.find(primer)
+                for i in range(start, start + len(primer)):
+                    top_tags[i] = label
+            # Reverse complement olarak varsa → alt zincire boya
+            elif rev_comp in seq:
+                start = seq.find(rev_comp)
+                for i in range(start, start + len(primer)):
+                    bottom_tags[i] = label
+            else:
+                continue  # eşleşme yoksa boyama yok
 
     def render_line(bases, tags):
         return ''.join(
@@ -79,26 +83,22 @@ def highlight_sequence(seq, primer_sets, molecule_type, line_length=200):
             for base, tag in zip(bases, tags)
         )
 
-    # Komplement dizi (etiketsiz)
-    complement_map = str.maketrans("ATGC", "TACG")
-    comp_seq = seq.translate(complement_map)
-
-    # Satır satır böl
+    # Satır satır gösterim
     lines = []
     for i in range(0, len(seq), line_length):
         line_seq = seq_list[i:i+line_length]
-        line_tags = tags[i:i+line_length]
-        line_comp = comp_seq[i:i+line_length]
+        line_top_tags = top_tags[i:i+line_length]
 
-        top_line = render_line(line_seq, line_tags)
-        bottom_line = line_comp  # renksiz alt zincir
+        line_comp = comp_list[i:i+line_length]
+        line_bottom_tags = bottom_tags[i:i+line_length]
+
+        top_line = render_line(line_seq, line_top_tags)
+        bottom_line = render_line(line_comp, line_bottom_tags)
 
         lines.append(f"5' {top_line} 3'<br>3' {bottom_line} 5'")
 
-    full_html = f"{style}<div class='seq-box'>" + "<br><br>".join(lines) + "</div>"
-    return full_html
-
-
+    html = f"{style}<div class='seq-box'>" + "<br><br>".join(lines) + "</div>"
+    return html
 
 # Analiz başlatma
 if st.button("🔍 Analizi Başlat"):
