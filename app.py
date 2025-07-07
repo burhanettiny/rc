@@ -30,12 +30,15 @@ RE_SITES = {
 }
 
 st.set_page_config(page_title="Multiplex PCR Primer Analizi", layout="wide")
-st.title("🧬 Sekansta Otomatik Restriksiyon Enzim Kesim Analizi")
+st.title("🧬 Sekansta Otomatik Restriksiyon Enzim ve Metilasyon Analizi")
 
 seq_input = st.text_area("🔢 DNA/RNA Sekansı", height=200).upper().replace(" ", "").replace("\n", "")
 molecule_type = st.selectbox("Molekül Tipi", ["DNA", "RNA"])
 if molecule_type == "RNA":
     seq_input = seq_input.replace("U", "T")
+
+# Metilasyon motifi
+methylation_motif = st.text_input("🧬 Metilasyon Motifi veya Sekansı (örneğin: CG)", value="CG").upper().replace("U", "T")
 
 primer_set_count = st.number_input("🔢 Primer Seti Sayısı (Multiplex)", min_value=1, max_value=5, value=1, step=1)
 primer_sets = []
@@ -61,13 +64,14 @@ def find_all_enzymes_in_sequence(seq, enzymes_dict):
             results[enzyme] = [(m.start(), m.end()) for m in matches]
     return results
 
-def highlight_sequence(seq, primer_sets, enzyme_sites=None, line_length=80):
+def highlight_sequence(seq, primer_sets, methylation_motif=None, enzyme_sites=None, line_length=80):
     style = """
     <style>
     .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
     .fwd { background-color: #90ee90; }
     .rev { background-color: #ffcccb; }
     .prb { background-color: #add8e6; }
+    .met { background-color: #ffff99; }
     .enz { background-color: #dda0dd; }
     </style>
     """
@@ -93,6 +97,13 @@ def highlight_sequence(seq, primer_sets, enzyme_sites=None, line_length=80):
                 start = seq.find(rev_comp)
                 for i in range(start, start + len(primer)):
                     tags[i] = label
+
+    # Metilasyon motifi etiketleme
+    if methylation_motif:
+        for match in re.finditer(methylation_motif, seq):
+            for i in range(match.start(), match.end()):
+                if tags[i] == '':
+                    tags[i] = 'met'
 
     # Enzim kesim bölgeleri etiketleme
     if enzyme_sites:
@@ -120,7 +131,6 @@ if st.button("🔍 Analizi Başlat"):
     elif any(not s["forward"] or not s["reverse"] for s in primer_sets):
         st.error("Her primer seti için forward ve reverse primer gereklidir.")
     else:
-        # Primer analizi
         st.subheader("📐 Primer Seti Analizi")
         for idx, s in enumerate(primer_sets):
             fwd = s["forward"]
@@ -151,7 +161,7 @@ if st.button("🔍 Analizi Başlat"):
                 st.write(f"**Tm (Prob):** {mt.Tm_Wallace(probe):.2f} °C | GC: {gc_fraction(probe)*100:.2f}%")
             st.markdown(f"**🔹 Optimum Annealing Temperature (Ta):** {Ta:.2f} °C 🔥")
 
-        # Otomatik enzim kesim analizi
+        # Enzim kesim analizi
         enzyme_sites = find_all_enzymes_in_sequence(seq_input, RE_SITES)
 
         st.subheader("🔪 Sekansta Bulunan Restriksiyon Enzim Kesim Bölgeleri")
@@ -163,9 +173,9 @@ if st.button("🔍 Analizi Başlat"):
         else:
             st.info("Sekans içinde bilinen enzim kesim bölgesi bulunamadı.")
 
-        # Sekans vurgulama
+        # Sekans görselleştirme
         st.subheader("🧬 Sekans Görünümü")
-        html = highlight_sequence(seq_input, primer_sets, enzyme_sites)
+        html = highlight_sequence(seq_input, primer_sets, methylation_motif, enzyme_sites)
         st.markdown(html, unsafe_allow_html=True)
 
 # PCR döngüsü önerisi
