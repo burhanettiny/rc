@@ -38,14 +38,13 @@ def find_positions(seq, subseq):
     match = re.search(subseq, seq)
     return (match.start(), match.end()) if match else (-1, -1)
 
-# Sekans vurgulayıcı HTML görsel fonksiyonu
-def highlight_sequence(seq, primer_sets, molecule_type, line_length=200):
+def highlight_sequence(seq, primer_sets, molecule_type, line_length=80):
     style = """
     <style>
-    .seq-box { font-family: Courier New, monospace; font-size: 15px; line-height: 1.6; white-space: pre-wrap; }
-    .fwd { background-color: #90ee90; }
-    .rev { background-color: #ffcccb; }
-    .prb { background-color: #add8e6; }
+    .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
+    .fwd { background-color: #90ee90; }   /* açık yeşil */
+    .rev { background-color: #ffcccb; }   /* açık kırmızı */
+    .prb { background-color: #add8e6; }   /* açık mavi */
     </style>
     """
 
@@ -53,29 +52,25 @@ def highlight_sequence(seq, primer_sets, molecule_type, line_length=200):
     top_tags = [''] * len(seq)
     bottom_tags = [''] * len(seq)
 
-    # Komplement dizi (alt zincir)
     complement_map = str.maketrans("ATGC", "TACG")
     comp_seq = seq.translate(complement_map)
     comp_list = list(comp_seq)
 
+    # Primer yerleşim kontrolü: hangi zincirdeyse orayı boya
     for s in primer_sets:
         for label, primer in [('fwd', s["forward"]), ('rev', s["reverse"]), ('prb', s["probe"])]:
             if not primer:
                 continue
 
             rev_comp = reverse_complement(primer)
-            # Primer doğrudan referans dizideyse → üst zincire boya
             if primer in seq:
                 start = seq.find(primer)
                 for i in range(start, start + len(primer)):
                     top_tags[i] = label
-            # Reverse complement olarak varsa → alt zincire boya
             elif rev_comp in seq:
                 start = seq.find(rev_comp)
                 for i in range(start, start + len(primer)):
                     bottom_tags[i] = label
-            else:
-                continue  # eşleşme yoksa boyama yok
 
     def render_line(bases, tags):
         return ''.join(
@@ -83,22 +78,14 @@ def highlight_sequence(seq, primer_sets, molecule_type, line_length=200):
             for base, tag in zip(bases, tags)
         )
 
-    # Satır satır gösterim
     lines = []
     for i in range(0, len(seq), line_length):
-        line_seq = seq_list[i:i+line_length]
-        line_top_tags = top_tags[i:i+line_length]
-
-        line_comp = comp_list[i:i+line_length]
-        line_bottom_tags = bottom_tags[i:i+line_length]
-
-        top_line = render_line(line_seq, line_top_tags)
-        bottom_line = render_line(line_comp, line_bottom_tags)
-
+        top_line = render_line(seq_list[i:i+line_length], top_tags[i:i+line_length])
+        bottom_line = render_line(comp_list[i:i+line_length], bottom_tags[i:i+line_length])
         lines.append(f"5' {top_line} 3'<br>3' {bottom_line} 5'")
 
-    html = f"{style}<div class='seq-box'>" + "<br><br>".join(lines) + "</div>"
-    return html
+    full_html = f"{style}<div class='seq-box'>" + "<br><br>".join(lines) + "</div>"
+    return full_html
 
 # Analiz başlatma
 if st.button("🔍 Analizi Başlat"):
