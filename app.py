@@ -198,9 +198,6 @@ def calculate_methylation_stats(seq, methylation_motif="CG"):
     # Gerçek uygulamada bu veri dışarıdan gelmeli
     methylation_percentage = 50  
     return total_sites, methylation_percentage
-
-if st.button("🔍 Analizi Başlat"):
-    # ...
     total_cpg, meth_percent = calculate_methylation_stats(seq_input, methylation_motif)
     st.write(f"Toplam CpG metilasyon motifi sayısı: {total_cpg}")
     st.write(f"Ortalama metilasyon yüzdesi: %{meth_percent}")
