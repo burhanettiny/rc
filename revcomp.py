@@ -106,10 +106,4 @@ if st.button("🔍 Analizi Başlat"):
             extension_time = st.number_input("Uzama Süresi (sn)", value=60)
         cycle_count = st.slider("🔁 Döngü Sayısı", min_value=10, max_value=50, value=35)
 
-        pcr_table = pd.DataFrame({
-            "Adım": ["Denatürasyon", "Annealing", "Uzama"],
-            "Sıcaklık (°C)": [denaturation_temp, Ta, extension_temp],
-            "Süre (sn)": [denaturation_time, annealing_time, extension_time]
-        })
-
         st.pyplot
