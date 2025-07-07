@@ -42,18 +42,17 @@ def find_positions(seq, subseq):
 def highlight_sequence(seq, primer_sets, molecule_type):
     style = """
     <style>
-    .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
+    .seq-box { font-family: Courier New, monospace; font-size: 15px; line-height: 1.4; white-space: pre-wrap; }
     .fwd { background-color: #90ee90; }   /* LightGreen */
     .rev { background-color: #ffcccb; }   /* LightRed */
     .prb { background-color: #add8e6; }   /* LightBlue */
-    .arrow-fwd::after { content: ' →'; }
-    .arrow-rev::before { content: '← '; }
     </style>
     """
+
     seq_list = list(seq)
     tags = [''] * len(seq)
 
-    for idx, s in enumerate(primer_sets):
+    for s in primer_sets:
         fwd = s["forward"]
         rev = s["reverse"]
         probe = s["probe"]
@@ -66,40 +65,32 @@ def highlight_sequence(seq, primer_sets, molecule_type):
         if fwd_start != -1:
             for i in range(fwd_start, fwd_end):
                 tags[i] = 'fwd'
-            tags[fwd_end - 1] += ' arrow-fwd'
-
         if rev_start != -1:
             for i in range(rev_start, rev_end):
                 tags[i] = 'rev'
-            tags[rev_start] += ' arrow-rev'
-
         if probe and probe_start != -1:
             for i in range(probe_start, probe_end):
                 tags[i] = 'prb'
-            tags[probe_end - 1] += ' arrow-fwd'
 
-    html_seq = ''
-    for base, tag in zip(seq_list, tags):
-        if tag:
-            classes = " ".join(tag.split())
-            html_seq += f'<span class="{classes}">{base}</span>'
-        else:
-            html_seq += base
+    def render_line(bases, tags):
+        return ''.join(
+            f'<span class="{tag}">{base}</span>' if tag else base
+            for base, tag in zip(bases, tags)
+        )
+
+    html_fwd = render_line(seq_list, tags)
 
     if molecule_type == "DNA":
-        complement = str(Seq(seq).reverse_complement())
-        html_comp = ''
-        for base, tag in zip(complement, tags[::-1]):
-            if tag:
-                classes = " ".join(tag.split())
-                html_comp += f'<span class="{classes}">{base}</span>'
-            else:
-                html_comp += base
-        html = f"{style}<div class='seq-box'><b>5' → </b>{html_seq}<b> ← 3'</b><br><b>3' ← </b>{html_comp}<b> → 5'</b></div>"
+        complement_map = str.maketrans("ATGC", "TACG")
+        comp_seq = seq.translate(complement_map)
+        comp_tags = tags  # aynı yerleri renklendiriyoruz
+        html_comp = render_line(list(comp_seq), comp_tags)
+        html = f"{style}<div class='seq-box'>5' {html_fwd} 3'<br>3' {html_comp} 5'</div>"
     else:
-        html = f"{style}<div class='seq-box'><b>5' → </b>{html_seq}<b> ← 3'</b></div>"
+        html = f"{style}<div class='seq-box'>5' {html_fwd} 3'</div>"
 
     return html
+
 
 # Analiz başlatma
 if st.button("🔍 Analizi Başlat"):
