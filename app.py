@@ -157,6 +157,25 @@ if st.button("🔍 Analizi Başlat"):
             extension_time = st.number_input("Uzama Süresi (sn)", value=60)
         cycle_count = st.slider("🔁 Döngü Sayısı", min_value=10, max_value=50, value=35)
 
+
+
+
+
+# 🔧 Otomatik PCR koşulu önerisi
+        st.subheader("📋 Önerilen PCR Döngüsü")
+
+        # Ta değerini önceki analizden al (yoksa 60 olarak varsay)
+        Ta = ((Tm_f + Tm_r) / 2) - 5 if 'Tm_f' in locals() and 'Tm_r' in locals() else 60
+
+        pcr_table = pd.DataFrame({
+            "Adım": ["Denatürasyon", "Annealing", "Uzama"],
+            "Sıcaklık (°C)": [95, round(Ta, 2), 72],
+            "Süre (sn)": [30, 30, 60]
+        })
+st.table(pcr_table)
+st.caption("🔁 Önerilen döngü sayısı: 35")
+
+
         Ta = ((Tm_f + Tm_r) / 2) - 5 if 'Tm_f' in locals() else 60
         pcr_table = pd.DataFrame({
             "Adım": ["Denatürasyon", "Annealing", "Uzama"],
