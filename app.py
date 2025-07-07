@@ -186,12 +186,3 @@ if st.button("🔍 Analizi Başlat"):
         else:
             st.info("Belirtilen motife göre metilasyon bölgesi bulunamadı.")
 
-st.subheader("📋 Önerilen PCR Döngüsü")
-Ta = ((mt.Tm_Wallace(primer_sets[0]['forward']) + mt.Tm_Wallace(primer_sets[0]['reverse'])) / 2 - 5) if primer_sets and primer_sets[0]['forward'] and primer_sets[0]['reverse'] else 60
-pcr_table = pd.DataFrame({
-    "Adım": ["Denatürasyon", "Annealing", "Uzama"],
-    "Sıcaklık (°C)": [95, round(Ta, 2), 72],
-    "Süre (sn)": [30, 30, 60]
-})
-st.table(pcr_table)
-st.caption("🔁 Önerilen döngü sayısı: 35")
