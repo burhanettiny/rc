@@ -124,9 +124,4 @@ if st.button("🔍 Analizi Başlat"):
             ax2.barh(y=0, width=pcr_table["Süre (sn)"][i], left=sum(pcr_table["Süre (sn)"][:i]),
                      color=colors[i], height=heights[i], label=labels[i])
 
-        ax2.set_xlim(0, sum(pcr_table["Süre (sn)"]))
-        ax2.set_yticks([])
-        ax2.set_xlabel("Süre (sn)")
-        ax2.set_title(f"🔁 1 PCR Döngüsü ({cycle_count} tekrar)")
-        ax2.legend(loc="upper right")
         st.pyplot(fig2)
