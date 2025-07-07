@@ -17,8 +17,9 @@ molecule_type = st.selectbox("Molekül Tipi", ["DNA", "RNA"])
 if molecule_type == "RNA":
     seq_input = seq_input.replace("U", "T")
 
-# Metilasyon motifi
+# Metilasyon ve restriksiyon dizisi girişi
 methylation_motif = st.text_input("🧬 Metilasyon Motifi veya Sekansı (örneğin: CG)", value="CG").upper().replace("U", "T")
+restriction_site = st.text_input("🔪 Restriksiyon Enzim Kesim Dizisi (örneğin: GAATTC)", value="").upper().replace("U", "T")
 
 # Primer set sayısı
 primer_set_count = st.number_input("🔢 Primer Seti Sayısı (Multiplex)", min_value=1, max_value=5, value=1, step=1)
@@ -39,14 +40,14 @@ def find_positions(seq, subseq):
     match = re.search(subseq, seq)
     return (match.start(), match.end()) if match else (-1, -1)
 
-def analyze_methylation_sites(seq, motif):
+def analyze_motif_sites(seq, motif):
     matches = list(re.finditer(motif, seq))
     positions = [(m.start(), m.end()) for m in matches]
     count = len(matches)
     coverage_percent = (sum(end - start for start, end in positions) / len(seq)) * 100 if seq else 0
     return count, positions, coverage_percent
 
-def highlight_sequence(seq, primer_sets, methylation_motif=None, line_length=80):
+def highlight_sequence(seq, primer_sets, methylation_motif=None, restriction_site=None, line_length=80):
     style = """
     <style>
     .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
@@ -54,6 +55,7 @@ def highlight_sequence(seq, primer_sets, methylation_motif=None, line_length=80)
     .rev { background-color: #ffcccb; }
     .prb { background-color: #add8e6; }
     .met { background-color: #ffff99; }
+    .enz { background-color: #dda0dd; }
     </style>
     """
 
@@ -84,6 +86,12 @@ def highlight_sequence(seq, primer_sets, methylation_motif=None, line_length=80)
             for i in range(match.start(), match.end()):
                 if top_tags[i] == '':
                     top_tags[i] = 'met'
+
+    if restriction_site:
+        for match in re.finditer(restriction_site, seq):
+            for i in range(match.start(), match.end()):
+                if top_tags[i] == '':
+                    top_tags[i] = 'enz'
 
     def render_line(bases, tags):
         return ''.join(f'<span class="{tag}">{base}</span>' if tag else base for base, tag in zip(bases, tags))
@@ -136,19 +144,29 @@ if st.button("🔍 Analizi Başlat"):
             st.markdown(f"**🔹 Optimum Annealing Temperature (Ta):** {Ta:.2f} °C 🔥")
 
         # Sekans görselleştirme
-        st.subheader("🧬 Sekans Üzerinde Primer, Prob ve Metilasyon Yerleşimi")
-        html = highlight_sequence(seq_input, primer_sets, methylation_motif)
+        st.subheader("🧬 Sekans Üzerinde Primer, Prob, Metilasyon ve Enzim Yerleşimi")
+        html = highlight_sequence(seq_input, primer_sets, methylation_motif, restriction_site)
         st.markdown(html, unsafe_allow_html=True)
 
         # Metilasyon motif analizi
         if methylation_motif:
             st.subheader("🧪 Metilasyon Motifi Analizi")
-            count, positions, coverage = analyze_methylation_sites(seq_input, methylation_motif)
+            count, positions, coverage = analyze_motif_sites(seq_input, methylation_motif)
             st.write(f"🔹 **Toplam {count} adet** '{methylation_motif}' motifi bulundu.")
             st.write(f"🔸 **Sekansın %{coverage:.2f}** kadarı metilasyon bölgesi.")
-            st.markdown("📍 **Pozisyonlar:**")
             for idx, (start, end) in enumerate(positions, 1):
                 st.markdown(f"- {idx}. bölge: {start}–{end}")
+
+        # Restriksiyon enzimi analizi
+        if restriction_site:
+            st.subheader("🔪 Restriksiyon Enzim Kesim Noktaları")
+            enz_matches = list(re.finditer(restriction_site, seq_input))
+            if enz_matches:
+                for idx, match in enumerate(enz_matches, 1):
+                    start, end = match.start(), match.end()
+                    st.markdown(f"- {idx}. kesim bölgesi: {start}–{end}")
+            else:
+                st.info("Girilen restriksiyon dizisi sekans içinde bulunamadı.")
 
 # PCR döngüsü önerisi
 st.subheader("📋 Önerilen PCR Döngüsü")
