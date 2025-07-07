@@ -92,3 +92,36 @@ if st.button("🔍 Analizi Başlat"):
         ax.set_title("Sekans Üzerinde Primer ve Prob Yerleşimi")
         ax.legend()
         st.pyplot(fig)
+# 🔎 Sekans içinde renklendirme
+def highlight_sequence(seq, highlights):
+    html = ""
+    last = 0
+    for start, end, color in sorted(highlights):
+        html += seq[last:start]
+        html += f"<span style='background-color:{color}; font-weight:bold'>{seq[start:end]}</span>"
+        last = end
+    html += seq[last:]
+    return html
+
+highlight_regions = []
+
+for idx, s in enumerate(primer_sets):
+    fwd = s["forward"]
+    rev = s["reverse"]
+    prb = s["probe"]
+    rev_rc = reverse_complement(rev)
+
+    fwd_start, fwd_end = find_positions(seq_input, fwd)
+    rev_start, rev_end = find_positions(seq_input, rev_rc)
+    probe_start, probe_end = find_positions(seq_input, prb) if prb else (-1, -1)
+
+    if fwd_start != -1:
+        highlight_regions.append((fwd_start, fwd_end, primer_colors[idx]))
+    if rev_start != -1:
+        highlight_regions.append((rev_start, rev_end, primer_colors[idx]))
+    if probe_start != -1:
+        highlight_regions.append((probe_start, probe_end, probe_colors[idx]))
+
+st.subheader("🧬 Renklendirilmiş Sekans Görünümü")
+highlighted_html = highlight_sequence(seq_input, highlight_regions)
+st.markdown(f"<div style='font-family:monospace; font-size:14px'>{highlighted_html}</div>", unsafe_allow_html=True)
