@@ -145,18 +145,6 @@ if st.button("🔍 Analizi Başlat"):
         html = highlight_sequence(seq_input, primer_sets, molecule_type)
         st.markdown(html, unsafe_allow_html=True)
 
-        # PCR Döngüsü
-        st.subheader("🎛️ PCR Döngüsü Özelleştir")
-        col1, col2 = st.columns(2)
-        with col1:
-            denaturation_temp = st.number_input("Denatürasyon Sıcaklığı (°C)", value=95)
-            denaturation_time = st.number_input("Denatürasyon Süresi (sn)", value=30)
-        with col2:
-            annealing_time = st.number_input("Annealing Süresi (sn)", value=30)
-            extension_temp = st.number_input("Uzama Sıcaklığı (°C)", value=72)
-            extension_time = st.number_input("Uzama Süresi (sn)", value=60)
-        cycle_count = st.slider("🔁 Döngü Sayısı", min_value=10, max_value=50, value=35)
-
 # 🔧 Otomatik PCR koşulu önerisi
 st.subheader("📋 Önerilen PCR Döngüsü")
 
