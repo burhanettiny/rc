@@ -188,3 +188,19 @@ pcr_table = pd.DataFrame({
 })
 st.table(pcr_table)
 st.caption("🔁 Önerilen döngü sayısı: 35")
+
+# CpG metilasyon bölgesi sayısı ve yüzdesi örneği
+
+def calculate_methylation_stats(seq, methylation_motif="CG"):
+    sites = list(re.finditer(methylation_motif, seq))
+    total_sites = len(sites)
+    # Örnek: tüm metilasyonlu bölgelerin % metilasyonunu 50% gibi sabit verelim
+    # Gerçek uygulamada bu veri dışarıdan gelmeli
+    methylation_percentage = 50  
+    return total_sites, methylation_percentage
+
+if st.button("🔍 Analizi Başlat"):
+    # ...
+    total_cpg, meth_percent = calculate_methylation_stats(seq_input, methylation_motif)
+    st.write(f"Toplam CpG metilasyon motifi sayısı: {total_cpg}")
+    st.write(f"Ortalama metilasyon yüzdesi: %{meth_percent}")
