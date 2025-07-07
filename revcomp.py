@@ -52,7 +52,7 @@ if st.button("🔍 Analizi Başlat"):
                 st.write(f"**Tm (Forward):** {mt.Tm_Wallace(primer_f):.2f} °C | GC: {gc_fraction(primer_f)*100:.2f}%")
                 st.write(f"**Tm (Reverse):** {mt.Tm_Wallace(primer_r):.2f} °C | GC: {gc_fraction(primer_r)*100:.2f}%")
                 if probe:
-                    st.write(f"**Tm (Prob):** {mt.Tm_Wallace(probe):.2f} °C | GC: {gc(probe):.2f}%")
+                    st.write(f"**Tm (Prob):** {mt.Tm_Wallace(probe):.2f} °C | GC: {gc_fraction(primer_r)*100:.2f}%")
 
             # Görsel çizim
             fig, ax = plt.subplots(figsize=(12, 2))
