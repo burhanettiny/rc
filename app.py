@@ -46,7 +46,7 @@ def analyze_methylation_sites(seq, motif):
     coverage_percent = (sum(end - start for start, end in positions) / len(seq)) * 100 if seq else 0
     return count, positions, coverage_percent
 
-def highlight_sequence(seq, primer_sets, molecule_type, methylation_motif=None, line_length=80):
+def highlight_sequence(seq, primer_sets, methylation_motif=None, line_length=80):
     style = """
     <style>
     .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
@@ -137,7 +137,7 @@ if st.button("🔍 Analizi Başlat"):
 
         # Sekans görselleştirme
         st.subheader("🧬 Sekans Üzerinde Primer, Prob ve Metilasyon Yerleşimi")
-        html = highlight_sequence(seq_input, primer_sets, molecule_type, methylation_motif)
+        html = highlight_sequence(seq_input, primer_sets, methylation_motif)
         st.markdown(html, unsafe_allow_html=True)
 
         # Metilasyon motif analizi
