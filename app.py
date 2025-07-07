@@ -174,14 +174,3 @@ if st.button("🔍 Analizi Başlat"):
         })
 st.table(pcr_table)
 st.caption("🔁 Önerilen döngü sayısı: 35")
-
-
-        Ta = ((Tm_f + Tm_r) / 2) - 5 if 'Tm_f' in locals() else 60
-        pcr_table = pd.DataFrame({
-            "Adım": ["Denatürasyon", "Annealing", "Uzama"],
-            "Sıcaklık (°C)": [denaturation_temp, Ta, extension_temp],
-            "Süre (sn)": [denaturation_time, annealing_time, extension_time]
-        })
-
-        st.subheader("📋 Özelleştirilmiş PCR Döngüsü")
-        st.table(pcr_table)
