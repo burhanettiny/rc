@@ -5,11 +5,35 @@ from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp as mt
 from Bio.SeqUtils import gc_fraction
 
+# Restriksiyon enzimleri ve kesim motifleri (örnek geniş liste)
+RE_SITES = {
+    "EcoRI": "GAATTC",
+    "BamHI": "GGATCC",
+    "HindIII": "AAGCTT",
+    "NotI": "GCGGCCGC",
+    "XhoI": "CTCGAG",
+    "PstI": "CTGCAG",
+    "SacI": "GAGCTC",
+    "SalI": "GTCGAC",
+    "SmaI": "CCCGGG",
+    "KpnI": "GGTACC",
+    "ApaI": "GGGCCC",
+    "NcoI": "CCATGG",
+    "MluI": "ACGCGT",
+    "NheI": "GCTAGC",
+    "SpeI": "ACTAGT",
+    "ClaI": "ATCGAT",
+    "DraI": "TTTAAA",
+    "BglII": "AGATCT",
+    "XbaI": "TCTAGA",
+    "EagI": "CGGCCG"
+}
+
 # Sayfa ayarları
 st.set_page_config(page_title="Multiplex PCR Primer Analizi", layout="wide")
 st.title("🧬 Multiplex DNA/RNA Primer ve Prob Analizi Aracı")
 
-st.markdown("Bu araç, birden fazla primer/prob seti ile PCR analizi yapmanızı sağlar. Tm, GC, Ta, amplikon uzunluğu hesaplanır ve sekans üzerinde renkli gösterilir.")
+st.markdown("Bu araç, primer/prob setleri, metilasyon ve restriksiyon enzimleri analizi yapar.")
 
 # Kullanıcı girişi
 seq_input = st.text_area("🔢 DNA/RNA Sekansı", height=200).upper().replace(" ", "").replace("\n", "")
@@ -17,14 +41,17 @@ molecule_type = st.selectbox("Molekül Tipi", ["DNA", "RNA"])
 if molecule_type == "RNA":
     seq_input = seq_input.replace("U", "T")
 
-# Metilasyon ve restriksiyon dizisi girişi
+# Metilasyon motifi
 methylation_motif = st.text_input("🧬 Metilasyon Motifi veya Sekansı (örneğin: CG)", value="CG").upper().replace("U", "T")
-restriction_site = st.text_input("🔪 Restriksiyon Enzim Kesim Dizisi (örneğin: GAATTC)", value="").upper().replace("U", "T")
+
+# Restriksiyon enzim girişi (isim veya motif)
+restriction_input = st.text_input(
+    "🔪 Restriksiyon Enzimi Adı veya Kesim Dizisi (örneğin: EcoRI veya GAATTC)", value=""
+).strip()
 
 # Primer set sayısı
 primer_set_count = st.number_input("🔢 Primer Seti Sayısı (Multiplex)", min_value=1, max_value=5, value=1, step=1)
 primer_sets = []
-
 for i in range(primer_set_count):
     with st.expander(f"🧬 Primer Set {i+1}"):
         fwd = st.text_input(f"➡️ Forward Primer {i+1} (5'-3')", key=f"fwd_{i}").upper().replace("U", "T")
@@ -47,7 +74,7 @@ def analyze_motif_sites(seq, motif):
     coverage_percent = (sum(end - start for start, end in positions) / len(seq)) * 100 if seq else 0
     return count, positions, coverage_percent
 
-def highlight_sequence(seq, primer_sets, methylation_motif=None, restriction_site=None, line_length=80):
+def highlight_sequence(seq, primer_sets, methylation_motif=None, restriction_motif=None, line_length=80):
     style = """
     <style>
     .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
@@ -87,8 +114,8 @@ def highlight_sequence(seq, primer_sets, methylation_motif=None, restriction_sit
                 if top_tags[i] == '':
                     top_tags[i] = 'met'
 
-    if restriction_site:
-        for match in re.finditer(restriction_site, seq):
+    if restriction_motif:
+        for match in re.finditer(restriction_motif, seq):
             for i in range(match.start(), match.end()):
                 if top_tags[i] == '':
                     top_tags[i] = 'enz'
@@ -104,6 +131,18 @@ def highlight_sequence(seq, primer_sets, methylation_motif=None, restriction_sit
 
     full_html = f"{style}<div class='seq-box'>" + "<br><br>".join(lines) + "</div>"
     return full_html
+
+# Restriksiyon enzimi motifini belirleme
+def get_restriction_motif(input_str):
+    if not input_str:
+        return None, []
+    input_str = input_str.upper()
+    # Öncelikle enzim adı ise:
+    if input_str in RE_SITES:
+        return RE_SITES[input_str], [input_str]
+    # Değilse motif olarak kabul edip bu motifin hangi enzimler tarafından kesildiğini bul:
+    matched_enzymes = [name for name, motif in RE_SITES.items() if motif == input_str]
+    return input_str, matched_enzymes
 
 # Analiz başlat
 if st.button("🔍 Analizi Başlat"):
@@ -143,9 +182,12 @@ if st.button("🔍 Analizi Başlat"):
                 st.write(f"**Tm (Prob):** {mt.Tm_Wallace(probe):.2f} °C | GC: {gc_fraction(probe)*100:.2f}%")
             st.markdown(f"**🔹 Optimum Annealing Temperature (Ta):** {Ta:.2f} °C 🔥")
 
+        # Restriksiyon motif ve hangi enzim(ler) ile kesildiğini bul
+        restriction_motif, matched_enzymes = get_restriction_motif(restriction_input)
+
         # Sekans görselleştirme
-        st.subheader("🧬 Sekans Üzerinde Primer, Prob, Metilasyon ve Enzim Yerleşimi")
-        html = highlight_sequence(seq_input, primer_sets, methylation_motif, restriction_site)
+        st.subheader("🧬 Sekans Üzerinde Primer, Prob, Metilasyon ve Restriksiyon Enzimi Yerleşimi")
+        html = highlight_sequence(seq_input, primer_sets, methylation_motif, restriction_motif)
         st.markdown(html, unsafe_allow_html=True)
 
         # Metilasyon motif analizi
@@ -158,9 +200,13 @@ if st.button("🔍 Analizi Başlat"):
                 st.markdown(f"- {idx}. bölge: {start}–{end}")
 
         # Restriksiyon enzimi analizi
-        if restriction_site:
+        if restriction_motif:
             st.subheader("🔪 Restriksiyon Enzim Kesim Noktaları")
-            enz_matches = list(re.finditer(restriction_site, seq_input))
+            if matched_enzymes:
+                st.write(f"🧬 Bu motif şu enzim(ler) tarafından kesilir: {', '.join(matched_enzymes)}")
+            else:
+                st.write(f"🧬 Bu motif herhangi bir bilinen enzim tarafından tanınmamaktadır.")
+            enz_matches = list(re.finditer(restriction_motif, seq_input))
             if enz_matches:
                 for idx, match in enumerate(enz_matches, 1):
                     start, end = match.start(), match.end()
