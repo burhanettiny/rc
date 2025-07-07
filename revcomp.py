@@ -46,76 +46,57 @@ if st.button("🔍 Analizi Başlat"):
         st.error("Her primer seti için forward ve reverse primer gereklidir.")
     else:
         st.subheader("📐 Primer Seti Analizi")
-        fig, ax = plt.subplots(figsize=(12, 2))
-        ax.plot(range(len(seq_input)), [1]*len(seq_input), 'k-', lw=1)
+        highlight_regions = []
 
-        for idx, s in enumerate(primer_sets):
-            fwd = s["forward"]
-            rev = s["reverse"]
-            probe = s["probe"]
+        num_blocks = len(seq_input) // 200 + 1
+        for block in range(num_blocks):
+            block_start = block * 200
+            block_end = min((block + 1) * 200, len(seq_input))
+            block_seq = seq_input[block_start:block_end]
 
-            rev_rc = reverse_complement(rev)
-            st.info(f"Set {idx+1}: Reverse primer 5'-3' yönünde girildiği için reverse complement alındı.")
+            fig, ax = plt.subplots(figsize=(12, 2))
+            ax.set_xlim(block_start, block_end)
+            ax.set_ylim(0.6, 1.6)
+            ax.set_yticks([])
+            ax.set_xlabel("Baz Pozisyonu")
+            ax.set_title(f"Primer ve Prob Yerleşimi (Pozisyon {block_start} - {block_end})")
 
-            fwd_start, fwd_end = find_positions(seq_input, fwd)
-            rev_start, rev_end = find_positions(seq_input, rev_rc)
-            probe_start, probe_end = find_positions(seq_input, probe) if probe else (-1, -1)
+            ax.plot(range(block_start, block_end), [1]*(block_end - block_start), 'k-', lw=1)
 
-            if fwd_start == -1 or rev_start == -1:
-                st.error(f"Set {idx+1}: Primerlar sekans içinde bulunamadı!")
-                continue
+            for idx, s in enumerate(primer_sets):
+                fwd = s["forward"]
+                rev = s["reverse"]
+                probe = s["probe"]
+                rev_rc = reverse_complement(rev)
 
-            amplikon = rev_end - fwd_start
-            Tm_f = mt.Tm_Wallace(fwd)
-            Tm_r = mt.Tm_Wallace(rev)
-            Ta = ((Tm_f + Tm_r) / 2) - 5
+                fwd_start, fwd_end = find_positions(seq_input, fwd)
+                rev_start, rev_end = find_positions(seq_input, rev_rc)
+                probe_start, probe_end = find_positions(seq_input, probe) if probe else (-1, -1)
 
-            with st.container():
-                st.markdown(f"### 🧪 Primer Set {idx+1}")
-                st.write(f"**Forward Primer Pozisyonu:** {fwd_start}-{fwd_end}")
-                st.write(f"**Reverse Primer Pozisyonu:** {rev_start}-{rev_end}")
-                st.write(f"**Amplikon Uzunluğu:** {amplikon} bp")
-                st.write(f"**Tm (Forward):** {Tm_f:.2f} °C | GC: {gc_fraction(fwd)*100:.2f}%")
-                st.write(f"**Tm (Reverse):** {Tm_r:.2f} °C | GC: {gc_fraction(rev)*100:.2f}%")
-                if probe:
-                    st.write(f"**Tm (Prob):** {mt.Tm_Wallace(probe):.2f} °C | GC: {gc_fraction(probe)*100:.2f}%")
-                st.markdown(f"**🔹 Optimum Annealing Temperature (Ta):** {Ta:.2f} °C 🔥")
-                st.markdown("> **Formül:**  \n> Ta = ((Tm_forward + Tm_reverse) / 2) - 5")
+                if fwd_start != -1:
+                    highlight_regions.append((fwd_start, fwd_end, primer_colors[idx]))
+                if rev_start != -1:
+                    highlight_regions.append((rev_start, rev_end, primer_colors[idx]))
+                if probe and probe_start != -1:
+                    highlight_regions.append((probe_start, probe_end, probe_colors[idx]))
 
-            ax.plot(range(fwd_start, fwd_end), [1.2]*len(fwd), color=primer_colors[idx], lw=4, label=f"Set {idx+1} Forward")
-            ax.plot(range(rev_start, rev_end), [0.8]*len(rev_rc), color=primer_colors[idx], lw=4, label=f"Set {idx+1} Reverse")
-            if probe and probe_start != -1:
-                ax.plot(range(probe_start, probe_end), [1.4]*len(probe), color=probe_colors[idx], lw=4, label=f"Set {idx+1} Probe")
+                # Bilgileri ekle
+                if fwd_start >= block_start and fwd_end <= block_end:
+                    ax.plot(range(fwd_start, fwd_end), [1.2]*len(fwd), color=primer_colors[idx], lw=4, label=f"Set {idx+1} Forward")
+                if rev_start >= block_start and rev_end <= block_end:
+                    ax.plot(range(rev_start, rev_end), [0.8]*len(rev_rc), color=primer_colors[idx], lw=4, label=f"Set {idx+1} Reverse")
+                if probe and probe_start >= block_start and probe_end <= block_end:
+                    ax.plot(range(probe_start, probe_end), [1.4]*len(probe), color=probe_colors[idx], lw=4, label=f"Set {idx+1} Probe")
 
-        ax.set_yticks([])
-        ax.set_xlabel("Baz Pozisyonu")
-        ax.set_title("Sekans Üzerinde Primer ve Prob Yerleşimi")
-        ax.legend()
-        st.pyplot(fig)
-# 🔎 Sekans içinde renklendirme
-def highlight_sequence_multiline(seq, highlights, line_length=80):
-    html = ""
-    last = 0
-    highlight_map = {}
+            # Harf bazlı sekans: her baz, kendi pozisyonuna göre renkli yazılır
+            for i in range(block_start, block_end):
+                base = seq_input[i]
+                color = None
+                for start, end, c in highlight_regions:
+                    if start <= i < end:
+                        color = c
+                        break
+                ax.text(i, 1.02, base, fontsize=7, color=color if color else 'black', ha='center', va='bottom', family='monospace')
 
-    # Önce her pozisyon için renkleri bir sözlükte işaretle
-    for start, end, color in highlights:
-        for i in range(start, end):
-            highlight_map[i] = color
-
-    # Her line_length kadar satır yap
-    for line_start in range(0, len(seq), line_length):
-        line_html = ""
-        for i in range(line_start, min(line_start + line_length, len(seq))):
-            base = seq[i]
-            if i in highlight_map:
-                line_html += f"<span style='background-color:{highlight_map[i]}; font-weight:bold'>{base}</span>"
-            else:
-                line_html += base
-        html += line_html + "<br>"
-
-    return html
-st.subheader("🧬 Renklendirilmiş Sekans Görünümü")
-
-highlighted_html = highlight_sequence_multiline(seq_input, highlight_regions, line_length=80)
-st.markdown(f"<div style='font-family:monospace; font-size:14px'>{highlighted_html}</div>", unsafe_allow_html=True)
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.25), ncol=3)
+            st.pyplot(fig)
