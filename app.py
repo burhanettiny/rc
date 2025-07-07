@@ -5,7 +5,6 @@ from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp as mt
 from Bio.SeqUtils import gc_fraction
 
-# Restriksiyon enzimleri ve motifleri
 RE_SITES = {
     "EcoRI": "GAATTC",
     "BamHI": "GGATCC",
@@ -37,7 +36,6 @@ molecule_type = st.selectbox("Molekül Tipi", ["DNA", "RNA"])
 if molecule_type == "RNA":
     seq_input = seq_input.replace("U", "T")
 
-# Metilasyon motifi
 methylation_motif = st.text_input("🧬 Metilasyon Motifi veya Sekansı (örneğin: CG)", value="CG").upper().replace("U", "T")
 
 primer_set_count = st.number_input("🔢 Primer Seti Sayısı (Multiplex)", min_value=1, max_value=5, value=1, step=1)
@@ -48,6 +46,14 @@ for i in range(primer_set_count):
         rev = st.text_input(f"⬅️ Reverse Primer {i+1} (5'-3')", key=f"rev_{i}").upper().replace("U", "T")
         prb = st.text_input(f"🟨 Prob {i+1} (opsiyonel)", key=f"prb_{i}").upper().replace("U", "T")
         primer_sets.append({"forward": fwd, "reverse": rev, "probe": prb})
+
+# Metilasyon bölgeleri ve yüzdeleri kullanıcı girişi
+methyl_regions = st.text_input(
+    "📍 Metilasyon Bölgeleri (başlangıç-bitiş, virgülle ayrılmış, örn: 10-20,50-60)", value=""
+)
+methyl_percents = st.text_input(
+    "📊 Bölgelere ait % Metilasyon Değerleri (virgülle ayrılmış, örn: 75,40)", value=""
+)
 
 def reverse_complement(seq):
     return str(Seq(seq).reverse_complement())
@@ -64,7 +70,7 @@ def find_all_enzymes_in_sequence(seq, enzymes_dict):
             results[enzyme] = [(m.start(), m.end()) for m in matches]
     return results
 
-def highlight_sequence(seq, primer_sets, methylation_motif=None, enzyme_sites=None, line_length=80):
+def highlight_sequence(seq, primer_sets, methylation_motif=None, enzyme_sites=None, methyl_regions_list=None, line_length=80):
     style = """
     <style>
     .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
@@ -73,6 +79,7 @@ def highlight_sequence(seq, primer_sets, methylation_motif=None, enzyme_sites=No
     .prb { background-color: #add8e6; }
     .met { background-color: #ffff99; }
     .enz { background-color: #dda0dd; }
+    .meth_region { background-color: #fff2cc; }
     </style>
     """
 
@@ -105,6 +112,13 @@ def highlight_sequence(seq, primer_sets, methylation_motif=None, enzyme_sites=No
                 if tags[i] == '':
                     tags[i] = 'met'
 
+    # Metilasyon bölgeleri (büyük alanlar) etiketleme
+    if methyl_regions_list:
+        for start, end in methyl_regions_list:
+            for i in range(start, end+1):
+                if tags[i] == '':
+                    tags[i] = 'meth_region'
+
     # Enzim kesim bölgeleri etiketleme
     if enzyme_sites:
         for enzyme, positions in enzyme_sites.items():
@@ -124,6 +138,28 @@ def highlight_sequence(seq, primer_sets, methylation_motif=None, enzyme_sites=No
 
     full_html = f"{style}<div class='seq-box'>" + "<br><br>".join(lines) + "</div>"
     return full_html
+
+def parse_methylation_regions(regions_text):
+    regions = []
+    for part in regions_text.split(","):
+        part = part.strip()
+        if '-' in part:
+            try:
+                start, end = map(int, part.split("-"))
+                regions.append((start, end))
+            except:
+                pass
+    return regions
+
+def parse_percents(percents_text):
+    percents = []
+    for val in percents_text.split(","):
+        val = val.strip()
+        try:
+            percents.append(float(val))
+        except:
+            pass
+    return percents
 
 if st.button("🔍 Analizi Başlat"):
     if not seq_input:
@@ -161,7 +197,6 @@ if st.button("🔍 Analizi Başlat"):
                 st.write(f"**Tm (Prob):** {mt.Tm_Wallace(probe):.2f} °C | GC: {gc_fraction(probe)*100:.2f}%")
             st.markdown(f"**🔹 Optimum Annealing Temperature (Ta):** {Ta:.2f} °C 🔥")
 
-        # Enzim kesim analizi
         enzyme_sites = find_all_enzymes_in_sequence(seq_input, RE_SITES)
 
         st.subheader("🔪 Sekansta Bulunan Restriksiyon Enzim Kesim Bölgeleri")
@@ -173,14 +208,29 @@ if st.button("🔍 Analizi Başlat"):
         else:
             st.info("Sekans içinde bilinen enzim kesim bölgesi bulunamadı.")
 
-        # Sekans görselleştirme
+        methyl_regions_list = parse_methylation_regions(methyl_regions)
+        methyl_percents_list = parse_percents(methyl_percents)
+
+        if methyl_regions_list and methyl_percents_list:
+            if len(methyl_regions_list) != len(methyl_percents_list):
+                st.warning("Metilasyon bölgeleri ve % metilasyon sayısı eşleşmiyor.")
+            else:
+                st.subheader("🧬 Metilasyon Bölgeleri ve % Metilasyon")
+                df = pd.DataFrame({
+                    "Bölge Başlangıç": [r[0] for r in methyl_regions_list],
+                    "Bölge Bitiş": [r[1] for r in methyl_regions_list],
+                    "% Metilasyon": methyl_percents_list
+                })
+                st.table(df)
+        else:
+            st.info("Metilasyon bölgeleri veya % metilasyon verisi girilmedi veya eksik.")
+
         st.subheader("🧬 Sekans Görünümü")
-        html = highlight_sequence(seq_input, primer_sets, methylation_motif, enzyme_sites)
+        html = highlight_sequence(seq_input, primer_sets, methylation_motif, enzyme_sites, methyl_regions_list)
         st.markdown(html, unsafe_allow_html=True)
 
-# PCR döngüsü önerisi
 st.subheader("📋 Önerilen PCR Döngüsü")
-Ta = ((Tm_f + Tm_r) / 2) - 5 if 'Tm_f' in locals() and 'Tm_r' in locals() else 60
+Ta = ((mt.Tm_Wallace(primer_sets[0]['forward']) + mt.Tm_Wallace(primer_sets[0]['reverse'])) / 2 - 5) if primer_sets and primer_sets[0]['forward'] and primer_sets[0]['reverse'] else 60
 pcr_table = pd.DataFrame({
     "Adım": ["Denatürasyon", "Annealing", "Uzama"],
     "Sıcaklık (°C)": [95, round(Ta, 2), 72],
@@ -188,16 +238,3 @@ pcr_table = pd.DataFrame({
 })
 st.table(pcr_table)
 st.caption("🔁 Önerilen döngü sayısı: 35")
-
-# CpG metilasyon bölgesi sayısı ve yüzdesi örneği
-
-def calculate_methylation_stats(seq, methylation_motif="CG"):
-    sites = list(re.finditer(methylation_motif, seq))
-    total_sites = len(sites)
-    # Örnek: tüm metilasyonlu bölgelerin % metilasyonunu 50% gibi sabit verelim
-    # Gerçek uygulamada bu veri dışarıdan gelmeli
-    methylation_percentage = 50  
-    return total_sites, methylation_percentage
-    total_cpg, meth_percent = calculate_methylation_stats(seq_input, methylation_motif)
-    st.write(f"Toplam CpG metilasyon motifi sayısı: {total_cpg}")
-    st.write(f"Ortalama metilasyon yüzdesi: %{meth_percent}")
