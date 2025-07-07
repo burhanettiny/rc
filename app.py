@@ -1,27 +1,28 @@
 import streamlit as st
 import re
-import matplotlib.pyplot as plt
 import pandas as pd
 from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp as mt
 from Bio.SeqUtils import gc_fraction
 
+# Sayfa ayarları
 st.set_page_config(page_title="Multiplex PCR Primer Analizi", layout="wide")
 st.title("🧬 Multiplex DNA/RNA Primer ve Prob Analizi Aracı")
 
-st.markdown("Bu araç, birden fazla primer/prob seti ile PCR analizi yapmanızı sağlar. Tm, GC, Ta, amplikon uzunluğu hesaplanır ve görsel olarak gösterilir.")
+st.markdown("Bu araç, birden fazla primer/prob seti ile PCR analizi yapmanızı sağlar. Tm, GC, Ta, amplikon uzunluğu hesaplanır ve sekans üzerinde renkli gösterilir.")
 
-# Kullanıcı girdileri
+# Kullanıcı girişi
 seq_input = st.text_area("🔢 DNA/RNA Sekansı", height=200).upper().replace(" ", "").replace("\n", "")
 molecule_type = st.selectbox("Molekül Tipi", ["DNA", "RNA"])
 
 if molecule_type == "RNA":
     seq_input = seq_input.replace("U", "T")
 
-# Multiplex giriş
+# Primer set sayısı
 primer_set_count = st.number_input("🔢 Primer Seti Sayısı (Multiplex)", min_value=1, max_value=5, value=1, step=1)
 primer_sets = []
 
+# Kullanıcıdan primer/prob girişleri
 for i in range(primer_set_count):
     with st.expander(f"🧬 Primer Set {i+1}"):
         fwd = st.text_input(f"➡️ Forward Primer {i+1} (5'-3')", key=f"fwd_{i}").upper().replace("U", "T")
@@ -29,6 +30,7 @@ for i in range(primer_set_count):
         prb = st.text_input(f"🟨 Prob {i+1} (opsiyonel)", key=f"prb_{i}").upper().replace("U", "T")
         primer_sets.append({"forward": fwd, "reverse": rev, "probe": prb})
 
+# Yardımcı fonksiyonlar
 def reverse_complement(seq):
     return str(Seq(seq).reverse_complement())
 
@@ -36,9 +38,70 @@ def find_positions(seq, subseq):
     match = re.search(subseq, seq)
     return (match.start(), match.end()) if match else (-1, -1)
 
-primer_colors = ['green', 'red', 'purple', 'orange', 'brown']
-probe_colors = ['cyan', 'magenta', 'gray', 'blue', 'olive']
+# Sekans vurgulayıcı HTML görsel fonksiyonu
+def highlight_sequence(seq, primer_sets, molecule_type):
+    style = """
+    <style>
+    .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
+    .fwd { background-color: #90ee90; }   /* LightGreen */
+    .rev { background-color: #ffcccb; }   /* LightRed */
+    .prb { background-color: #add8e6; }   /* LightBlue */
+    .arrow-fwd::after { content: ' →'; }
+    .arrow-rev::before { content: '← '; }
+    </style>
+    """
+    seq_list = list(seq)
+    tags = [''] * len(seq)
 
+    for idx, s in enumerate(primer_sets):
+        fwd = s["forward"]
+        rev = s["reverse"]
+        probe = s["probe"]
+        rev_rc = reverse_complement(rev)
+
+        fwd_start, fwd_end = find_positions(seq, fwd)
+        rev_start, rev_end = find_positions(seq, rev_rc)
+        probe_start, probe_end = find_positions(seq, probe) if probe else (-1, -1)
+
+        if fwd_start != -1:
+            for i in range(fwd_start, fwd_end):
+                tags[i] = 'fwd'
+            tags[fwd_end - 1] += ' arrow-fwd'
+
+        if rev_start != -1:
+            for i in range(rev_start, rev_end):
+                tags[i] = 'rev'
+            tags[rev_start] += ' arrow-rev'
+
+        if probe and probe_start != -1:
+            for i in range(probe_start, probe_end):
+                tags[i] = 'prb'
+            tags[probe_end - 1] += ' arrow-fwd'
+
+    html_seq = ''
+    for base, tag in zip(seq_list, tags):
+        if tag:
+            classes = " ".join(tag.split())
+            html_seq += f'<span class="{classes}">{base}</span>'
+        else:
+            html_seq += base
+
+    if molecule_type == "DNA":
+        complement = str(Seq(seq).reverse_complement())
+        html_comp = ''
+        for base, tag in zip(complement, tags[::-1]):
+            if tag:
+                classes = " ".join(tag.split())
+                html_comp += f'<span class="{classes}">{base}</span>'
+            else:
+                html_comp += base
+        html = f"{style}<div class='seq-box'><b>5' → </b>{html_seq}<b> ← 3'</b><br><b>3' ← </b>{html_comp}<b> → 5'</b></div>"
+    else:
+        html = f"{style}<div class='seq-box'><b>5' → </b>{html_seq}<b> ← 3'</b></div>"
+
+    return html
+
+# Analiz başlatma
 if st.button("🔍 Analizi Başlat"):
     if not seq_input:
         st.error("Sekans girişi zorunludur.")
@@ -46,36 +109,6 @@ if st.button("🔍 Analizi Başlat"):
         st.error("Her primer seti için forward ve reverse primer gereklidir.")
     else:
         st.subheader("📐 Primer Seti Analizi")
-
-        all_positions = []
-        for idx, s in enumerate(primer_sets):
-            fwd = s["forward"]
-            rev = s["reverse"]
-            probe = s["probe"]
-            rev_rc = reverse_complement(rev)
-
-            fwd_start, fwd_end = find_positions(seq_input, fwd)
-            rev_start, rev_end = find_positions(seq_input, rev_rc)
-            probe_start, probe_end = find_positions(seq_input, probe) if probe else (-1, -1)
-
-            if fwd_start != -1: all_positions.extend([fwd_start, fwd_end])
-            if rev_start != -1: all_positions.extend([rev_start, rev_end])
-            if probe and probe_start != -1:
-                all_positions.extend([probe_start, probe_end])
-
-        if all_positions:
-            start = max(0, min(all_positions) - 20)
-            end = min(len(seq_input), max(all_positions) + 20)
-        else:
-            start, end = 0, min(200, len(seq_input))  # fallback gösterim
-
-        sub_seq = seq_input[start:end]
-        fig, ax = plt.subplots(figsize=(min(12, len(sub_seq)//10 + 2), 2))
-        ax.plot(range(start, end), [1]*(end - start), 'k-', lw=1)
-
-        # Sekans bazlarını yazdır
-        for i, base in enumerate(sub_seq):
-            ax.text(start + i, 1.05, base, fontsize=6, ha='center', va='bottom', color='black', rotation=90)
 
         for idx, s in enumerate(primer_sets):
             fwd = s["forward"]
@@ -88,7 +121,7 @@ if st.button("🔍 Analizi Başlat"):
             probe_start, probe_end = find_positions(seq_input, probe) if probe else (-1, -1)
 
             if fwd_start == -1 or rev_start == -1:
-                st.error(f"Set {idx+1}: Primerlar sekans içinde bulunamadı!")
+                st.warning(f"Set {idx+1}: Primerlar sekans içinde bulunamadı.")
                 continue
 
             amplikon = rev_end - fwd_start
@@ -108,17 +141,10 @@ if st.button("🔍 Analizi Başlat"):
                 st.markdown(f"**🔹 Optimum Annealing Temperature (Ta):** {Ta:.2f} °C 🔥")
                 st.markdown("> **Formül:**  \n> Ta = ((Tm_forward + Tm_reverse) / 2) - 5")
 
-            ax.axvspan(fwd_start, fwd_end, color=primer_colors[idx], alpha=0.3, label=f"Set {idx+1} Forward")
-            ax.axvspan(rev_start, rev_end, color=primer_colors[idx], alpha=0.3, label=f"Set {idx+1} Reverse")
-            if probe and probe_start != -1:
-                ax.axvspan(probe_start, probe_end, color=probe_colors[idx], alpha=0.3, label=f"Set {idx+1} Probe")
-
-        ax.set_xlim(start, end)
-        ax.set_yticks([])
-        ax.set_xlabel("Baz Pozisyonu")
-        ax.set_title("Sekans Üzerinde Primer ve Prob Yerleşimi")
-        ax.legend(loc="upper right", fontsize=7)
-        st.pyplot(fig)
+        # Sekans görseli (yeni sistem)
+        st.subheader("🧬 Sekans Üzerinde Primer ve Prob Yerleşimi")
+        html = highlight_sequence(seq_input, primer_sets, molecule_type)
+        st.markdown(html, unsafe_allow_html=True)
 
         # PCR Döngüsü
         st.subheader("🎛️ PCR Döngüsü Özelleştir")
@@ -132,6 +158,7 @@ if st.button("🔍 Analizi Başlat"):
             extension_time = st.number_input("Uzama Süresi (sn)", value=60)
         cycle_count = st.slider("🔁 Döngü Sayısı", min_value=10, max_value=50, value=35)
 
+        Ta = ((Tm_f + Tm_r) / 2) - 5 if 'Tm_f' in locals() else 60
         pcr_table = pd.DataFrame({
             "Adım": ["Denatürasyon", "Annealing", "Uzama"],
             "Sıcaklık (°C)": [denaturation_temp, Ta, extension_temp],
@@ -140,19 +167,3 @@ if st.button("🔍 Analizi Başlat"):
 
         st.subheader("📋 Özelleştirilmiş PCR Döngüsü")
         st.table(pcr_table)
-
-        fig2, ax2 = plt.subplots(figsize=(6, 2))
-        colors = ["red", "blue", "green"]
-        heights = [1, 0.7, 0.9]
-        labels = ["Denatürasyon", "Annealing", "Uzama"]
-
-        for i in range(3):
-            ax2.barh(y=0, width=pcr_table["Süre (sn)"][i], left=sum(pcr_table["Süre (sn)"][:i]),
-                     color=colors[i], height=heights[i], label=labels[i])
-
-        ax2.set_xlim(0, sum(pcr_table["Süre (sn)"]))
-        ax2.set_yticks([])
-        ax2.set_xlabel("Süre (sn)")
-        ax2.set_title(f"🔁 1 PCR Döngüsü ({cycle_count} tekrar)")
-        ax2.legend(loc="upper right")
-        st.pyplot(fig2)
