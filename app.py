@@ -39,19 +39,20 @@ def find_positions(seq, subseq):
     return (match.start(), match.end()) if match else (-1, -1)
 
 # Sekans vurgulayıcı HTML görsel fonksiyonu
-def highlight_sequence(seq, primer_sets, molecule_type):
+def highlight_sequence(seq, primer_sets, molecule_type, line_length=200):
     style = """
     <style>
-    .seq-box { font-family: Courier New, monospace; font-size: 15px; line-height: 1.4; white-space: pre-wrap; }
-    .fwd { background-color: #90ee90; }   /* LightGreen */
-    .rev { background-color: #ffcccb; }   /* LightRed */
-    .prb { background-color: #add8e6; }   /* LightBlue */
+    .seq-box { font-family: Courier New, monospace; font-size: 15px; line-height: 1.6; white-space: pre-wrap; }
+    .fwd { background-color: #90ee90; }
+    .rev { background-color: #ffcccb; }
+    .prb { background-color: #add8e6; }
     </style>
     """
 
     seq_list = list(seq)
     tags = [''] * len(seq)
 
+    # Sadece üst zinciri renklendir
     for s in primer_sets:
         fwd = s["forward"]
         rev = s["reverse"]
@@ -78,18 +79,25 @@ def highlight_sequence(seq, primer_sets, molecule_type):
             for base, tag in zip(bases, tags)
         )
 
-    html_fwd = render_line(seq_list, tags)
+    # Komplement dizi (etiketsiz)
+    complement_map = str.maketrans("ATGC", "TACG")
+    comp_seq = seq.translate(complement_map)
 
-    if molecule_type == "DNA":
-        complement_map = str.maketrans("ATGC", "TACG")
-        comp_seq = seq.translate(complement_map)
-        comp_tags = tags  # aynı yerleri renklendiriyoruz
-        html_comp = render_line(list(comp_seq), comp_tags)
-        html = f"{style}<div class='seq-box'>5' {html_fwd} 3'<br>3' {html_comp} 5'</div>"
-    else:
-        html = f"{style}<div class='seq-box'>5' {html_fwd} 3'</div>"
+    # Satır satır böl
+    lines = []
+    for i in range(0, len(seq), line_length):
+        line_seq = seq_list[i:i+line_length]
+        line_tags = tags[i:i+line_length]
+        line_comp = comp_seq[i:i+line_length]
 
-    return html
+        top_line = render_line(line_seq, line_tags)
+        bottom_line = line_comp  # renksiz alt zincir
+
+        lines.append(f"5' {top_line} 3'<br>3' {bottom_line} 5'")
+
+    full_html = f"{style}<div class='seq-box'>" + "<br><br>".join(lines) + "</div>"
+    return full_html
+
 
 
 # Analiz başlatma
