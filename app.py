@@ -167,6 +167,9 @@ if st.button("🔍 Analizi Başlat"):
         enzyme_sites = find_all_enzymes_in_sequence(seq_input, RE_SITES)
         methylation_regions = find_methylation_regions(seq_input, methylation_motif)
 
+        st.subheader("🧬 Sekans Görünümü")
+        html = highlight_sequence(seq_input, primer_sets, methylation_regions, enzyme_sites)
+        st.markdown(html, unsafe_allow_html=True)
         st.subheader("🧬 Metilasyon Bölgeleri (Otomatik)")
         if methylation_regions:
             df = pd.DataFrame([{"Başlangıç": r["start"], "Bitiş": r["end"], "Motif Sayısı": r["count"], "% Metilasyon": r["percent"]} for r in methylation_regions])
@@ -182,11 +185,6 @@ if st.button("🔍 Analizi Başlat"):
                     st.markdown(f"- Kesim bölgesi {i}: {start} - {end}")
         else:
             st.info("Sekans içinde bilinen enzim kesim bölgesi bulunamadı.")
-
-        st.subheader("🧬 Sekans Görünümü")
-        html = highlight_sequence(seq_input, primer_sets, methylation_regions, enzyme_sites)
-        st.markdown(html, unsafe_allow_html=True)
-
 st.subheader("📋 Önerilen PCR Döngüsü")
 Ta = ((mt.Tm_Wallace(primer_sets[0]['forward']) + mt.Tm_Wallace(primer_sets[0]['reverse'])) / 2 - 5) if primer_sets and primer_sets[0]['forward'] and primer_sets[0]['reverse'] else 60
 pcr_table = pd.DataFrame({
