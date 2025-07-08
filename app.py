@@ -1,4 +1,4 @@
-simport streamlit as st
+import streamlit as st
 import re
 import pandas as pd
 from Bio.Seq import Seq
