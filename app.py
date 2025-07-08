@@ -7,26 +7,11 @@ from Bio.SeqUtils import gc_fraction
 
 # Restriksiyon enzim motifleri
 RE_SITES = {
-    "EcoRI": "GAATTC",
-    "BamHI": "GGATCC",
-    "HindIII": "AAGCTT",
-    "NotI": "GCGGCCGC",
-    "XhoI": "CTCGAG",
-    "PstI": "CTGCAG",
-    "SacI": "GAGCTC",
-    "SalI": "GTCGAC",
-    "SmaI": "CCCGGG",
-    "KpnI": "GGTACC",
-    "ApaI": "GGGCCC",
-    "NcoI": "CCATGG",
-    "MluI": "ACGCGT",
-    "NheI": "GCTAGC",
-    "SpeI": "ACTAGT",
-    "ClaI": "ATCGAT",
-    "DraI": "TTTAAA",
-    "BglII": "AGATCT",
-    "XbaI": "TCTAGA",
-    "EagI": "CGGCCG"
+    "EcoRI": "GAATTC", "BamHI": "GGATCC", "HindIII": "AAGCTT", "NotI": "GCGGCCGC",
+    "XhoI": "CTCGAG", "PstI": "CTGCAG", "SacI": "GAGCTC", "SalI": "GTCGAC",
+    "SmaI": "CCCGGG", "KpnI": "GGTACC", "ApaI": "GGGCCC", "NcoI": "CCATGG",
+    "MluI": "ACGCGT", "NheI": "GCTAGC", "SpeI": "ACTAGT", "ClaI": "ATCGAT",
+    "DraI": "TTTAAA", "BglII": "AGATCT", "XbaI": "TCTAGA", "EagI": "CGGCCG"
 }
 
 st.set_page_config(page_title="Multiplex PCR Primer Analizi", layout="wide")
@@ -84,7 +69,7 @@ def find_methylation_regions(seq, motif, gap_threshold=5):
     regions.append({"start": start, "end": end, "count": count, "percent": percent})
     return regions
 
-def highlight_sequence(seq, primer_sets, methylation_regions=None, enzyme_sites=None, line_length=80):
+def highlight_sequence(seq, primer_sets, methylation_regions=None, enzyme_sites=None, line_length=60):
     style = """
     <style>
     .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
@@ -100,6 +85,7 @@ def highlight_sequence(seq, primer_sets, methylation_regions=None, enzyme_sites=
     complement_map = str.maketrans("ATGC", "TACG")
     comp_seq = seq.translate(complement_map)
     comp_list = list(comp_seq)
+
     for s in primer_sets:
         for label, primer in [('fwd', s["forward"]), ('rev', s["reverse"]), ('prb', s["probe"])]:
             if not primer:
@@ -108,29 +94,36 @@ def highlight_sequence(seq, primer_sets, methylation_regions=None, enzyme_sites=
             if primer in seq:
                 start = seq.find(primer)
                 for i in range(start, start + len(primer)):
-                    tags[i] = label
+                    if i < len(tags):
+                        tags[i] = label
             elif rev_comp in seq:
                 start = seq.find(rev_comp)
                 for i in range(start, start + len(primer)):
-                    tags[i] = label
+                    if i < len(tags):
+                        tags[i] = label
+
     if methylation_regions:
         for region in methylation_regions:
             for i in range(region["start"], region["end"]):
-                if tags[i] == '':
+                if i < len(tags) and tags[i] == '':
                     tags[i] = 'met'
+
     if enzyme_sites:
         for positions in enzyme_sites.values():
             for start, end in positions:
                 for i in range(start, end):
-                    if tags[i] == '':
+                    if i < len(tags) and tags[i] == '':
                         tags[i] = 'enz'
+
     def render_line(bases, tags):
         return ''.join(f'<span class="{tag}">{base}</span>' if tag else base for base, tag in zip(bases, tags))
+
     lines = []
     for i in range(0, len(seq), line_length):
         top_line = render_line(seq_list[i:i+line_length], tags[i:i+line_length])
-        bottom_line = render_line(comp_list[i:i+line_length], ['']*min(line_length,len(seq)-i))
+        bottom_line = render_line(comp_list[i:i+line_length], [''] * min(line_length, len(seq) - i))
         lines.append(f"5' {top_line} 3'<br>3' {bottom_line} 5'")
+
     return f"{style}<div class='seq-box'>" + "<br><br>".join(lines) + "</div>"
 
 if st.button("🔍 Analizi Başlat"):
@@ -168,8 +161,12 @@ if st.button("🔍 Analizi Başlat"):
         methylation_regions = find_methylation_regions(seq_input, methylation_motif)
 
         st.subheader("🧬 Sekans Görünümü")
-        html = highlight_sequence(seq_input, primer_sets, methylation_regions, enzyme_sites)
-        st.markdown(html, unsafe_allow_html=True)
+
+        # Uzun sekanslarda parçalı gösterim
+        for i in range(0, len(seq_input), 200):
+            chunk = seq_input[i:i+200]
+            html = highlight_sequence(chunk, primer_sets, methylation_regions, enzyme_sites, line_length=60)
+            st.markdown(html, unsafe_allow_html=True)
 
         st.subheader("🔪 Restriksiyon Enzim Kesim Bölgeleri")
         if enzyme_sites:
@@ -179,10 +176,12 @@ if st.button("🔍 Analizi Başlat"):
                     st.markdown(f"- Kesim bölgesi {i}: {start} - {end}")
         else:
             st.info("Sekans içinde bilinen enzim kesim bölgesi bulunamadı.")
+
         st.subheader("🧬 Metilasyon Bölgeleri (Otomatik)")
         if methylation_regions:
-            df = pd.DataFrame([{"Başlangıç": r["start"], "Bitiş": r["end"], "Motif Sayısı": r["count"], "% Metilasyon": r["percent"]} for r in methylation_regions])
+            df = pd.DataFrame([
+                {"Başlangıç": r["start"], "Bitiş": r["end"], "Motif Sayısı": r["count"], "% Metilasyon": r["percent"]}
+                for r in methylation_regions])
             st.dataframe(df)
         else:
             st.info("Belirtilen motife göre metilasyon bölgesi bulunamadı.")
-
