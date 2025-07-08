@@ -31,22 +31,6 @@ def find_positions(seq, subseq):
     match = re.search(subseq, seq)
     return (match.start(), match.end()) if match else (-1, -1)
 
-# Enzimleri sekans içinde doğru şekilde bul
-def find_all_enzymes_in_sequence(seq, enzymes_dict):
-    results = {}
-    for enzyme, motif in enzymes_dict.items():
-        pattern = iupac_to_regex(motif)
-        matches = list(re.finditer(pattern, seq))
-        clean_matches = []
-        for m in matches:
-            # Tam uzunlukta eşleşme (örneğin 11 bazlık motif için 11 bazlık eşleşme)
-            if (m.end() - m.start()) == len(motif):
-                clean_matches.append((m.start(), m.end()))
-        if clean_matches:
-            results[enzyme] = clean_matches
-    return results
-
-
 def find_methylation_regions(seq, motif, gap_threshold=5):
     matches = [m.start() for m in re.finditer(f'(?={motif})', seq)]
     if not matches:
@@ -67,6 +51,44 @@ def find_methylation_regions(seq, motif, gap_threshold=5):
     percent = min(100, count * 20)
     regions.append({"start": start, "end": end, "count": count, "percent": percent})
     return regions
+
+# Enzim listesi
+RE_SITES = {
+    "EcoRI": "GAATTC", "BamHI": "GGATCC", "HindIII": "AAGCTT", "NotI": "GCGGCCGC",
+    "XhoI": "CTCGAG", "PstI": "CTGCAG", "SacI": "GAGCTC", "SalI": "GTCGAC",
+    "SmaI": "CCCGGG", "KpnI": "GGTACC", "ApaI": "GGGCCC", "NcoI": "CCATGG",
+    "MluI": "ACGCGT", "NheI": "GCTAGC", "SpeI": "ACTAGT", "ClaI": "ATCGAT",
+    "DraI": "TTTAAA", "BglII": "AGATCT", "XbaI": "TCTAGA", "EagI": "CGGCCG",
+    "TestEnz": "CCANNNNNNTGG"  # test için
+}
+
+# IUPAC kod eşlemeleri
+IUPAC_CODES = {
+    'A': 'A', 'T': 'T', 'G': 'G', 'C': 'C',
+    'R': '[AG]', 'Y': '[CT]', 'S': '[GC]', 'W': '[AT]',
+    'K': '[GT]', 'M': '[AC]', 'B': '[CGT]', 'D': '[AGT]',
+    'H': '[ACT]', 'V': '[ACG]', 'N': '[ATGC]'
+}
+
+def iupac_to_regex(motif):
+    return ''.join(IUPAC_CODES.get(base, base) for base in motif)
+
+def find_all_enzymes_in_sequence(seq, enzymes_dict):
+    results = {}
+    for enzyme, motif in enzymes_dict.items():
+        pattern = iupac_to_regex(motif)
+        matches = list(re.finditer(pattern, seq))
+        clean_matches = []
+        for m in matches:
+            if (m.end() - m.start()) == len(motif):
+                clean_matches.append((m.start(), m.end()))
+        if clean_matches:
+            results[enzyme] = clean_matches
+    return results
+
+# kullanım örneği:
+enzyme_sites = find_all_enzymes_in_sequence("ATGCGTCCACGTAGCCANNNNNNTGGACGTAG", RE_SITES)
+print(enzyme_sites)
 
 def highlight_sequence(seq, primer_sets, methylation_regions=None, enzyme_sites=None, line_length=60):
     style = """
