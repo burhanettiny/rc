@@ -62,12 +62,14 @@ RE_SITES = {
     "SfiI": "GGCCNNNNNGGCC"
 }
 
-IUPAC_CODES = {
-    'A': 'A', 'T': 'T', 'G': 'G', 'C': 'C',
-    'R': '[AG]', 'Y': '[CT]', 'S': '[GC]', 'W': '[AT]',
-    'K': '[GT]', 'M': '[AC]', 'B': '[CGT]', 'D': '[AGT]',
-    'H': '[ACT]', 'V': '[ACG]', 'N': '[ATGC]'
-}
+def iupac_to_regex(seq):
+    IUPAC_CODES = {
+        'A': 'A', 'T': 'T', 'G': 'G', 'C': 'C',
+        'R': '[AG]', 'Y': '[CT]', 'S': '[GC]', 'W': '[AT]',
+        'K': '[GT]', 'M': '[AC]', 'B': '[CGT]', 'D': '[AGT]',
+        'H': '[ACT]', 'V': '[ACG]', 'N': '[ATGC]'
+    }
+    return ''.join(IUPAC_CODES.get(base, base) for base in seq)
 
 def iupac_to_regex(seq):
     return ''.join(IUPAC_CODES.get(base, base) for base in seq)
@@ -107,12 +109,16 @@ def find_positions(seq, subseq):
 def find_all_enzymes_in_sequence(seq, enzymes_dict):
     results = {}
     for enzyme, motif in enzymes_dict.items():
-        regex_motif = iupac_to_regex(motif)
-        matches = list(re.finditer(regex_motif, seq))
-        if matches:
-            results[enzyme] = [(m.start(), m.end()) for m in matches]
+        pattern = iupac_to_regex(motif)
+        matches = list(re.finditer(pattern, seq))  # burada dikkatli olmalıyız
+        clean_matches = []
+        for m in matches:
+            # Eşleşen bölgenin uzunluğu, motif uzunluğu ile aynı mı?
+            if (m.end() - m.start()) == len(motif):
+                clean_matches.append((m.start(), m.end()))
+        if clean_matches:
+            results[enzyme] = clean_matches
     return results
-
 
 def find_methylation_regions(seq, motif, gap_threshold=5):
     matches = [m.start() for m in re.finditer(f'(?={motif})', seq)]
