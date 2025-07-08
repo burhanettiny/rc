@@ -62,24 +62,17 @@ RE_SITES = {
     "SfiI": "GGCCNNNNNGGCC"
 }
 
-# IUPAC baz kodlarını regex eşdeğerlerine dönüştür
 IUPAC_CODES = {
-    'A': 'A',
-    'T': 'T',
-    'G': 'G',
-    'C': 'C',
-    'R': '[AG]',   # purine
-    'Y': '[CT]',   # pyrimidine
-    'S': '[GC]',
-    'W': '[AT]',
-    'K': '[GT]',
-    'M': '[AC]',
-    'B': '[CGT]',
-    'D': '[AGT]',
-    'H': '[ACT]',
-    'V': '[ACG]',
-    'N': '[ATGC]'
+    'A': 'A', 'T': 'T', 'G': 'G', 'C': 'C',
+    'R': '[AG]', 'Y': '[CT]', 'S': '[GC]', 'W': '[AT]',
+    'K': '[GT]', 'M': '[AC]', 'B': '[CGT]', 'D': '[AGT]',
+    'H': '[ACT]', 'V': '[ACG]', 'N': '[ATGC]'
 }
+
+def iupac_to_regex(seq):
+    return ''.join(IUPAC_CODES.get(base, base) for base in seq)
+
+
 
 def iupac_to_regex(seq):
     """IUPAC motif dizisini regex'e çevirir"""
