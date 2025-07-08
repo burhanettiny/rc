@@ -1,4 +1,4 @@
-import streamlit as st
+simport streamlit as st
 import re
 import pandas as pd
 from Bio.Seq import Seq
@@ -6,16 +6,87 @@ from Bio.SeqUtils import MeltingTemp as mt
 from Bio.SeqUtils import gc_fraction
 
 # Restriksiyon enzim motifleri
+# 🔪 Genişletilmiş Restriksiyon Enzim Motifleri
 RE_SITES = {
-    "EcoRI": "GAATTC", "BamHI": "GGATCC", "HindIII": "AAGCTT", "NotI": "GCGGCCGC",
-    "XhoI": "CTCGAG", "PstI": "CTGCAG", "SacI": "GAGCTC", "SalI": "GTCGAC",
-    "SmaI": "CCCGGG", "KpnI": "GGTACC", "ApaI": "GGGCCC", "NcoI": "CCATGG",
-    "MluI": "ACGCGT", "NheI": "GCTAGC", "SpeI": "ACTAGT", "ClaI": "ATCGAT",
-    "DraI": "TTTAAA", "BglII": "AGATCT", "XbaI": "TCTAGA", "EagI": "CGGCCG"
+    "EcoRI": "GAATTC",
+    "BamHI": "GGATCC",
+    "HindIII": "AAGCTT",
+    "NotI": "GCGGCCGC",
+    "XhoI": "CTCGAG",
+    "PstI": "CTGCAG",
+    "SacI": "GAGCTC",
+    "SalI": "GTCGAC",
+    "SmaI": "CCCGGG",
+    "KpnI": "GGTACC",
+    "ApaI": "GGGCCC",
+    "NcoI": "CCATGG",
+    "MluI": "ACGCGT",
+    "NheI": "GCTAGC",
+    "SpeI": "ACTAGT",
+    "ClaI": "ATCGAT",
+    "DraI": "TTTAAA",
+    "BglII": "AGATCT",
+    "XbaI": "TCTAGA",
+    "EagI": "CGGCCG",
+    "AluI": "AGCT",
+    "BspHI": "TCATGA",
+    "EcoRV": "GATATC",
+    "AvaI": "CYCGRG",     # Y = C/T, R = A/G
+    "HaeIII": "GGCC",
+    "HhaI": "GCGC",
+    "TaqI": "TCGA",
+    "AccI": "GTMKAC",     # M = A/C, K = G/T
+    "AatII": "GACGTC",
+    "AgeI": "ACCGGT",
+    "AsiSI": "GCGATCGC",
+    "BbsI": "GAAGAC",
+    "BsmBI": "CGTCTC",
+    "BsrGI": "TGTACA",
+    "BsaI": "GGTCTC",
+    "BciVI": "GTATCC",
+    "BstXI": "CCANNNNNNTGG",
+    "EcoO109I": "RGGNCCY", # R = A/G, Y = C/T
+    "FseI": "GGCCGGCC",
+    "HpaI": "GTTAAC",
+    "NruI": "TCGCGA",
+    "PacI": "TTAATTAA",
+    "PmeI": "GTTTAAAC",
+    "ScaI": "AGTACT",
+    "SnaBI": "TACGTA",
+    "SphI": "GCATGC",
+    "StuI": "AGGCCT",
+    "XmaI": "CCCGGG",
+    "ZraI": "GACGTC",
+    "BfuAI": "ACCTGC",
+    "BsaBI": "GATNNNNATC",
+    "SfiI": "GGCCNNNNNGGCC"
 }
 
-st.set_page_config(page_title="Multiplex PCR Primer Analizi", layout="wide")
-st.title("🧬 Sekansta Otomatik Restriksiyon Enzim ve Metilasyon Analizi")
+# IUPAC baz kodlarını regex eşdeğerlerine dönüştür
+IUPAC_CODES = {
+    'A': 'A',
+    'T': 'T',
+    'G': 'G',
+    'C': 'C',
+    'R': '[AG]',   # purine
+    'Y': '[CT]',   # pyrimidine
+    'S': '[GC]',
+    'W': '[AT]',
+    'K': '[GT]',
+    'M': '[AC]',
+    'B': '[CGT]',
+    'D': '[AGT]',
+    'H': '[ACT]',
+    'V': '[ACG]',
+    'N': '[ATGC]'
+}
+
+def iupac_to_regex(seq):
+    """IUPAC motif dizisini regex'e çevirir"""
+    return ''.join(IUPAC_CODES.get(base, base) for base in seq)
+
+st.set_page_config(page_title="Sekans Analizi", layout="wide")
+st.title("🧬 Sekans Analizi")
 
 seq_input = st.text_area("🔢 DNA/RNA Sekansı", height=200).upper().replace(" ", "").replace("\n", "")
 molecule_type = st.selectbox("Molekül Tipi", ["DNA", "RNA"])
@@ -43,10 +114,12 @@ def find_positions(seq, subseq):
 def find_all_enzymes_in_sequence(seq, enzymes_dict):
     results = {}
     for enzyme, motif in enzymes_dict.items():
-        matches = list(re.finditer(motif, seq))
+        regex_motif = iupac_to_regex(motif)
+        matches = list(re.finditer(regex_motif, seq))
         if matches:
             results[enzyme] = [(m.start(), m.end()) for m in matches]
     return results
+
 
 def find_methylation_regions(seq, motif, gap_threshold=5):
     matches = [m.start() for m in re.finditer(f'(?={motif})', seq)]
@@ -177,7 +250,7 @@ if st.button("🔍 Analizi Başlat"):
         else:
             st.info("Sekans içinde bilinen enzim kesim bölgesi bulunamadı.")
 
-        st.subheader("🧬 Metilasyon Bölgeleri (Otomatik)")
+        st.subheader("🧬 Metilasyon Bölgeleri ")
         if methylation_regions:
             df = pd.DataFrame([
                 {"Başlangıç": r["start"], "Bitiş": r["end"], "Motif Sayısı": r["count"], "% Metilasyon": r["percent"]}
