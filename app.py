@@ -5,13 +5,27 @@ from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp as mt
 from Bio.SeqUtils import gc_fraction
 
-st.set_page_config(page_title="Sekans Analizi", layout="wide")
-st.title("🧬 Sekans Analizi")
+# Restriksiyon enzim motifleri
+RE_SITES = {
+    "EcoRI": "GAATTC", "BamHI": "GGATCC", "HindIII": "AAGCTT", "NotI": "GCGGCCGC",
+    "XhoI": "CTCGAG", "PstI": "CTGCAG", "SacI": "GAGCTC", "SalI": "GTCGAC",
+    "SmaI": "CCCGGG", "KpnI": "GGTACC", "ApaI": "GGGCCC", "NcoI": "CCATGG",
+    "MluI": "ACGCGT", "NheI": "GCTAGC", "SpeI": "ACTAGT", "ClaI": "ATCGAT",
+    "DraI": "TTTAAA", "BglII": "AGATCT", "XbaI": "TCTAGA", "EagI": "CGGCCG",
+    "SbfI": "CCTGCAGG", "AscI": "GGCGCGCC", "PacI": "TTAATTAA", "SwaI": "ATTTAAAT",
+    "MfeI": "CAATTG", "NsiI": "ATGCAT", "AflII": "CTTAAG", "BspEI": "TCCGGA",
+    "StuI": "AGGCCT", "ScaI": "AGTACT"
+}
 
-seq_input = st.text_area("🔢 DNA/RNA Sekansı", height=200).upper().replace(" ", "").replace("\n", "")
+st.set_page_config(page_title="Multiplex PCR Primer Analizi", layout="wide")
+st.title("🧬 Sekansta Otomatik Restriksiyon Enzim ve Metilasyon Analizi")
+
+seq_input = st.text_area("🔢 DNA/RNA Sekansı", height=200).replace(" ", "").replace("\n", "")
 molecule_type = st.selectbox("Molekül Tipi", ["DNA", "RNA"])
 if molecule_type == "RNA":
     seq_input = seq_input.replace("U", "T")
+
+seq_input_upper = seq_input.upper()
 
 methylation_motif = st.text_input("🧬 Metilasyon Motifi veya Sekansı (örn: CG)", value="CG").upper().replace("U", "T")
 
@@ -19,20 +33,28 @@ primer_set_count = st.number_input("🔢 Primer Seti Sayısı (Multiplex)", min_
 primer_sets = []
 for i in range(primer_set_count):
     with st.expander(f"🧬 Primer Set {i+1}"):
-        fwd = st.text_input(f"➡️ Forward Primer {i+1} (5'-3')", key=f"fwd_{i}").upper().replace("U", "T")
-        rev = st.text_input(f"⬅️ Reverse Primer {i+1} (5'-3')", key=f"rev_{i}").upper().replace("U", "T")
-        prb = st.text_input(f"🟨 Prob {i+1} (opsiyonel)", key=f"prb_{i}").upper().replace("U", "T")
+        fwd = st.text_input(f"➡️ Forward Primer {i+1} (5'-3')", key=f"fwd_{i}").replace("U", "T").upper()
+        rev = st.text_input(f"⬅️ Reverse Primer {i+1} (5'-3')", key=f"rev_{i}").replace("U", "T").upper()
+        prb = st.text_input(f"🟨 Prob {i+1} (opsiyonel)", key=f"prb_{i}").replace("U", "T").upper()
         primer_sets.append({"forward": fwd, "reverse": rev, "probe": prb})
 
 def reverse_complement(seq):
-    return str(Seq(seq).reverse_complement())
+    return str(Seq(seq).reverse_complement()).upper()
 
 def find_positions(seq, subseq):
-    match = re.search(subseq, seq)
+    match = re.search(subseq, seq, re.IGNORECASE)
     return (match.start(), match.end()) if match else (-1, -1)
 
+def find_all_enzymes_in_sequence(seq, enzymes_dict):
+    results = {}
+    for enzyme, motif in enzymes_dict.items():
+        matches = list(re.finditer(motif, seq, re.IGNORECASE))
+        if matches:
+            results[enzyme] = [(m.start(), m.end()) for m in matches]
+    return results
+
 def find_methylation_regions(seq, motif, gap_threshold=5):
-    matches = [m.start() for m in re.finditer(f'(?={motif})', seq)]
+    matches = [m.start() for m in re.finditer(f'(?={motif})', seq, re.IGNORECASE)]
     if not matches:
         return []
     regions = []
@@ -52,45 +74,7 @@ def find_methylation_regions(seq, motif, gap_threshold=5):
     regions.append({"start": start, "end": end, "count": count, "percent": percent})
     return regions
 
-# Enzim listesi
-RE_SITES = {
-    "EcoRI": "GAATTC", "BamHI": "GGATCC", "HindIII": "AAGCTT", "NotI": "GCGGCCGC",
-    "XhoI": "CTCGAG", "PstI": "CTGCAG", "SacI": "GAGCTC", "SalI": "GTCGAC",
-    "SmaI": "CCCGGG", "KpnI": "GGTACC", "ApaI": "GGGCCC", "NcoI": "CCATGG",
-    "MluI": "ACGCGT", "NheI": "GCTAGC", "SpeI": "ACTAGT", "ClaI": "ATCGAT",
-    "DraI": "TTTAAA", "BglII": "AGATCT", "XbaI": "TCTAGA", "EagI": "CGGCCG",
-    "TestEnz": "CCANNNNNNTGG"  # test için
-}
-
-# IUPAC kod eşlemeleri
-IUPAC_CODES = {
-    'A': 'A', 'T': 'T', 'G': 'G', 'C': 'C',
-    'R': '[AG]', 'Y': '[CT]', 'S': '[GC]', 'W': '[AT]',
-    'K': '[GT]', 'M': '[AC]', 'B': '[CGT]', 'D': '[AGT]',
-    'H': '[ACT]', 'V': '[ACG]', 'N': '[ATGC]'
-}
-
-def iupac_to_regex(motif):
-    return ''.join(IUPAC_CODES.get(base, base) for base in motif)
-
-def find_all_enzymes_in_sequence(seq, enzymes_dict):
-    results = {}
-    for enzyme, motif in enzymes_dict.items():
-        pattern = iupac_to_regex(motif)
-        matches = list(re.finditer(pattern, seq))
-        clean_matches = []
-        for m in matches:
-            if (m.end() - m.start()) == len(motif):
-                clean_matches.append((m.start(), m.end()))
-        if clean_matches:
-            results[enzyme] = clean_matches
-    return results
-
-# kullanım örneği:
-enzyme_sites = find_all_enzymes_in_sequence("ATGCGTCCACGTAGCCANNNNNNTGGACGTAG", RE_SITES)
-print(enzyme_sites)
-
-def highlight_sequence(seq, primer_sets, methylation_regions=None, enzyme_sites=None, line_length=60):
+def highlight_sequence(seq, primer_sets, methylation_regions=None, enzyme_sites=None, line_length=80):
     style = """
     <style>
     .seq-box { font-family: Courier New, monospace; font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
@@ -101,10 +85,11 @@ def highlight_sequence(seq, primer_sets, methylation_regions=None, enzyme_sites=
     .enz { background-color: #dda0dd; }
     </style>
     """
-    seq_list = list(seq)
-    tags = [''] * len(seq)
+    seq_upper = seq.upper()
+    seq_list = list(seq_upper)
+    tags = [''] * len(seq_upper)
     complement_map = str.maketrans("ATGC", "TACG")
-    comp_seq = seq.translate(complement_map)
+    comp_seq = seq_upper.translate(complement_map)
     comp_list = list(comp_seq)
 
     for s in primer_sets:
@@ -112,37 +97,37 @@ def highlight_sequence(seq, primer_sets, methylation_regions=None, enzyme_sites=
             if not primer:
                 continue
             rev_comp = reverse_complement(primer)
-            if primer in seq:
-                start = seq.find(primer)
+            primer_lower = primer.lower()
+            rev_comp_lower = rev_comp.lower()
+            seq_lower = seq.lower()
+            if primer_lower in seq_lower:
+                start = seq_lower.find(primer_lower)
                 for i in range(start, start + len(primer)):
-                    if i < len(tags):
-                        tags[i] = label
-            elif rev_comp in seq:
-                start = seq.find(rev_comp)
+                    tags[i] = label
+            elif rev_comp_lower in seq_lower:
+                start = seq_lower.find(rev_comp_lower)
                 for i in range(start, start + len(primer)):
-                    if i < len(tags):
-                        tags[i] = label
+                    tags[i] = label
 
     if methylation_regions:
         for region in methylation_regions:
             for i in range(region["start"], region["end"]):
-                if i < len(tags) and tags[i] == '':
+                if tags[i] == '':
                     tags[i] = 'met'
-
     if enzyme_sites:
         for positions in enzyme_sites.values():
             for start, end in positions:
                 for i in range(start, end):
-                    if i < len(tags) and tags[i] == '':
+                    if tags[i] == '':
                         tags[i] = 'enz'
 
     def render_line(bases, tags):
         return ''.join(f'<span class="{tag}">{base}</span>' if tag else base for base, tag in zip(bases, tags))
 
     lines = []
-    for i in range(0, len(seq), line_length):
+    for i in range(0, len(seq_upper), line_length):
         top_line = render_line(seq_list[i:i+line_length], tags[i:i+line_length])
-        bottom_line = render_line(comp_list[i:i+line_length], [''] * min(line_length, len(seq) - i))
+        bottom_line = render_line(comp_list[i:i+line_length], ['']*min(line_length,len(seq_upper)-i))
         lines.append(f"5' {top_line} 3'<br>3' {bottom_line} 5'")
 
     return f"{style}<div class='seq-box'>" + "<br><br>".join(lines) + "</div>"
@@ -159,8 +144,8 @@ if st.button("🔍 Analizi Başlat"):
             rev = s["reverse"]
             probe = s["probe"]
             rev_rc = reverse_complement(rev)
-            fwd_start, fwd_end = find_positions(seq_input, fwd)
-            rev_start, rev_end = find_positions(seq_input, rev_rc)
+            fwd_start, fwd_end = find_positions(seq_input_upper, fwd)
+            rev_start, rev_end = find_positions(seq_input_upper, rev_rc)
             if fwd_start == -1 or rev_start == -1:
                 st.warning(f"Set {idx+1}: Primerlar sekans içinde bulunamadı.")
                 continue
@@ -178,16 +163,12 @@ if st.button("🔍 Analizi Başlat"):
                 st.write(f"**Tm (Prob):** {mt.Tm_Wallace(probe):.2f} °C | GC: {gc_fraction(probe)*100:.2f}%")
             st.markdown(f"**🔹 Optimum Annealing Temperature (Ta):** {Ta:.2f} °C 🔥")
 
-        enzyme_sites = find_all_enzymes_in_sequence(seq_input, RE_SITES)
-        methylation_regions = find_methylation_regions(seq_input, methylation_motif)
+        enzyme_sites = find_all_enzymes_in_sequence(seq_input_upper, RE_SITES)
+        methylation_regions = find_methylation_regions(seq_input_upper, methylation_motif)
 
         st.subheader("🧬 Sekans Görünümü")
-
-        # Uzun sekanslarda parçalı gösterim
-        for i in range(0, len(seq_input), 200):
-            chunk = seq_input[i:i+200]
-            html = highlight_sequence(chunk, primer_sets, methylation_regions, enzyme_sites, line_length=60)
-            st.markdown(html, unsafe_allow_html=True)
+        html = highlight_sequence(seq_input_upper, primer_sets, methylation_regions, enzyme_sites)
+        st.markdown(html, unsafe_allow_html=True)
 
         st.subheader("🔪 Restriksiyon Enzim Kesim Bölgeleri")
         if enzyme_sites:
@@ -198,11 +179,9 @@ if st.button("🔍 Analizi Başlat"):
         else:
             st.info("Sekans içinde bilinen enzim kesim bölgesi bulunamadı.")
 
-        st.subheader("🧬 Metilasyon Bölgeleri ")
+        st.subheader("🧬 Metilasyon Bölgeleri (Otomatik)")
         if methylation_regions:
-            df = pd.DataFrame([
-                {"Başlangıç": r["start"], "Bitiş": r["end"], "Motif Sayısı": r["count"], "% Metilasyon": r["percent"]}
-                for r in methylation_regions])
+            df = pd.DataFrame([{"Başlangıç": r["start"], "Bitiş": r["end"], "Motif Sayısı": r["count"], "% Metilasyon": r["percent"]} for r in methylation_regions])
             st.dataframe(df)
         else:
             st.info("Belirtilen motife göre metilasyon bölgesi bulunamadı.")
