@@ -5,81 +5,6 @@ from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp as mt
 from Bio.SeqUtils import gc_fraction
 
-# Restriksiyon enzim motifleri
-# 🔪 Genişletilmiş Restriksiyon Enzim Motifleri
-RE_SITES = {
-    "EcoRI": "GAATTC",
-    "BamHI": "GGATCC",
-    "HindIII": "AAGCTT",
-    "NotI": "GCGGCCGC",
-    "XhoI": "CTCGAG",
-    "PstI": "CTGCAG",
-    "SacI": "GAGCTC",
-    "SalI": "GTCGAC",
-    "SmaI": "CCCGGG",
-    "KpnI": "GGTACC",
-    "ApaI": "GGGCCC",
-    "NcoI": "CCATGG",
-    "MluI": "ACGCGT",
-    "NheI": "GCTAGC",
-    "SpeI": "ACTAGT",
-    "ClaI": "ATCGAT",
-    "DraI": "TTTAAA",
-    "BglII": "AGATCT",
-    "XbaI": "TCTAGA",
-    "EagI": "CGGCCG",
-    "AluI": "AGCT",
-    "BspHI": "TCATGA",
-    "EcoRV": "GATATC",
-    "AvaI": "CYCGRG",     # Y = C/T, R = A/G
-    "HaeIII": "GGCC",
-    "HhaI": "GCGC",
-    "TaqI": "TCGA",
-    "AccI": "GTMKAC",     # M = A/C, K = G/T
-    "AatII": "GACGTC",
-    "AgeI": "ACCGGT",
-    "AsiSI": "GCGATCGC",
-    "BbsI": "GAAGAC",
-    "BsmBI": "CGTCTC",
-    "BsrGI": "TGTACA",
-    "BsaI": "GGTCTC",
-    "BciVI": "GTATCC",
-    "BstXI": "CCANNNNNNTGG",
-    "EcoO109I": "RGGNCCY", # R = A/G, Y = C/T
-    "FseI": "GGCCGGCC",
-    "HpaI": "GTTAAC",
-    "NruI": "TCGCGA",
-    "PacI": "TTAATTAA",
-    "PmeI": "GTTTAAAC",
-    "ScaI": "AGTACT",
-    "SnaBI": "TACGTA",
-    "SphI": "GCATGC",
-    "StuI": "AGGCCT",
-    "XmaI": "CCCGGG",
-    "ZraI": "GACGTC",
-    "BfuAI": "ACCTGC",
-    "BsaBI": "GATNNNNATC",
-    "SfiI": "GGCCNNNNNGGCC"
-}
-
-def iupac_to_regex(seq):
-    IUPAC_CODES = {
-        'A': 'A', 'T': 'T', 'G': 'G', 'C': 'C',
-        'R': '[AG]', 'Y': '[CT]', 'S': '[GC]', 'W': '[AT]',
-        'K': '[GT]', 'M': '[AC]', 'B': '[CGT]', 'D': '[AGT]',
-        'H': '[ACT]', 'V': '[ACG]', 'N': '[ATGC]'
-    }
-    return ''.join(IUPAC_CODES.get(base, base) for base in seq)
-
-def iupac_to_regex(seq):
-    return ''.join(IUPAC_CODES.get(base, base) for base in seq)
-
-
-
-def iupac_to_regex(seq):
-    """IUPAC motif dizisini regex'e çevirir"""
-    return ''.join(IUPAC_CODES.get(base, base) for base in seq)
-
 st.set_page_config(page_title="Sekans Analizi", layout="wide")
 st.title("🧬 Sekans Analizi")
 
@@ -106,19 +31,21 @@ def find_positions(seq, subseq):
     match = re.search(subseq, seq)
     return (match.start(), match.end()) if match else (-1, -1)
 
+# Enzimleri sekans içinde doğru şekilde bul
 def find_all_enzymes_in_sequence(seq, enzymes_dict):
     results = {}
     for enzyme, motif in enzymes_dict.items():
         pattern = iupac_to_regex(motif)
-        matches = list(re.finditer(pattern, seq))  # burada dikkatli olmalıyız
+        matches = list(re.finditer(pattern, seq))
         clean_matches = []
         for m in matches:
-            # Eşleşen bölgenin uzunluğu, motif uzunluğu ile aynı mı?
+            # Tam uzunlukta eşleşme (örneğin 11 bazlık motif için 11 bazlık eşleşme)
             if (m.end() - m.start()) == len(motif):
                 clean_matches.append((m.start(), m.end()))
         if clean_matches:
             results[enzyme] = clean_matches
     return results
+
 
 def find_methylation_regions(seq, motif, gap_threshold=5):
     matches = [m.start() for m in re.finditer(f'(?={motif})', seq)]
