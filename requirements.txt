@@ -18,3 +18,4 @@ pandas
 tabula-py
 openpyxl
 pdfplumber
+xlsxwriter
