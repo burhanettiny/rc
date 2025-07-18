@@ -19,3 +19,4 @@ tabula-py
 openpyxl
 pdfplumber
 xlsxwriter
+python-docx
