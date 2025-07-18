@@ -1,4 +1,4 @@
-xcelimport streamlit as st
+import streamlit as st
 import pdfplumber
 import pandas as pd
 from io import BytesIO
