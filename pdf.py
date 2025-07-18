@@ -15,6 +15,8 @@ if uploaded_file is not None:
                 st.write(f"Sayfa {i+1} tablosu:")
                 for table in tables:
                     df = pd.DataFrame(table[1:], columns=table[0])
+                    # Sütun isimlerini benzersiz yap
+                    df.columns = pd.io.parsers.ParserBase({'names': df.columns})._maybe_dedup_names(df.columns)
                     st.dataframe(df)
                     all_tables.append(df)
         if not all_tables:
