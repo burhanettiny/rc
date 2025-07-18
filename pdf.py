@@ -46,19 +46,25 @@ if uploaded_file is not None:
                     df.to_excel(writer, sheet_name=safe_sheet_name, index=False)
             processed_data = output.getvalue()
 
-        # Excel dosyasını oluştur
+    if all_tables:
         output = BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            for sheet_name, df in all_tables:
-                # Excel sayfa adı 31 karakterden uzun olmamalı, onu kontrol edelim
-                safe_sheet_name = sheet_name[:31]
-                df.to_excel(writer, sheet_name=safe_sheet_name, index=False)
-            with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-                for sheet_name, df in all_tables:
-                    safe_sheet_name = sheet_name[:31]
-                    df.to_excel(writer, sheet_name=safe_sheet_name, index=False)
-            processed_data = output.getvalue()    
+            startrow = 0
+            worksheet_name = "Tüm Tablolar"
+            for title, df in all_tables:
+                # Sayfa adı veya tablo başlığını yazalım
+                df_sheet = writer.book.add_worksheet(worksheet_name)
+                # Ancak birden fazla worksheet oluşturmaz, tek worksheet için aşağıdaki şekilde yazalım
 
+            # Tek sheet içinde yazma:
+            worksheet = writer.book.add_worksheet(worksheet_name)
+            writer.sheets[worksheet_name] = worksheet
+
+            for title, df in all_tables:
+                worksheet.write(startrow, 0, title)  # Başlık yaz
+                df.to_excel(writer, sheet_name=worksheet_name, startrow=startrow + 1, index=False, header=True)
+                startrow += len(df) + 3  # Araya boşluk bırak
+      
         st.download_button(
             label="Excel Dosyasını İndir",
             data=processed_data,
