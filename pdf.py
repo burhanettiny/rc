@@ -15,7 +15,7 @@ def make_unique_columns(columns):
             result.append(f"{col}_{seen[col]}")
     return result
 
-st.title("PDF'den Tablo Okuma - pdfplumber ile")
+st.title("PDF' to excel")
 
 uploaded_file = st.file_uploader("PDF dosyanızı yükleyin", type=["pdf"])
 
@@ -40,7 +40,10 @@ if uploaded_file is not None:
                 # Excel sayfa adı 31 karakterden uzun olmamalı, onu kontrol edelim
                 safe_sheet_name = sheet_name[:31]
                 df.to_excel(writer, sheet_name=safe_sheet_name, index=False)
-            writer.save()
+            with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                for sheet_name, df in all_tables:
+                    safe_sheet_name = sheet_name[:31]
+                    df.to_excel(writer, sheet_name=safe_sheet_name, index=False)
             processed_data = output.getvalue()
 
         st.download_button(
