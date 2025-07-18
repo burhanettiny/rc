@@ -13,3 +13,7 @@ seaborn
 python-bidi
 arabic-reshaper
 biopython>=1.78
+streamlit
+pandas
+tabula-py
+openpyxl
