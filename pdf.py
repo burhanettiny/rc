@@ -1,4 +1,4 @@
-import streamlit as st
+xcelimport streamlit as st
 import pdfplumber
 import pandas as pd
 from io import BytesIO
@@ -15,7 +15,7 @@ def make_unique_columns(columns):
             result.append(f"{col}_{seen[col]}")
     return result
 
-st.title("PDF'den Tablo Okuma - pdfplumber ile")
+st.title("PDF'den Excel'e")
 
 uploaded_file = st.file_uploader("PDF dosyanızı yükleyin", type=["pdf"])
 
