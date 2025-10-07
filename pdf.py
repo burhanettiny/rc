@@ -19,53 +19,17 @@ def make_unique_columns(columns):
             result.append(f"{col}_{seen[col]}")
     return result
 
-# OCR modülü opsiyonel
-try:
-    import pytesseract
-    from PIL import Image
-    OCR_AVAILABLE = True
-except ModuleNotFoundError:
-    OCR_AVAILABLE = False
-
-def ocr_to_dataframe(image):
-    if not OCR_AVAILABLE:
-        return None
-    df_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DATAFRAME)
-    df_data = df_data[df_data.conf != -1]  
-    if df_data.empty:
-        return None
-    rows = []
-    for top_val, group in df_data.groupby('top'):
-        row = list(group.sort_values('left')['text'])
-        rows.append(row)
-    if len(rows) > 1:
-        try:
-            df = pd.DataFrame(rows[1:], columns=make_unique_columns(rows[0]))
-        except:
-            df = pd.DataFrame(rows)
-    else:
-        df = pd.DataFrame(rows)
-    return df
-
 if uploaded_file is not None:
     all_tables = []
     with pdfplumber.open(uploaded_file) as pdf:
         for i, page in enumerate(pdf.pages):
-            # 1️⃣ Dijital tablolar
             tables = page.extract_tables()
             if tables:
                 for j, table in enumerate(tables):
                     df = pd.DataFrame(table[1:], columns=table[0])
                     df.columns = make_unique_columns(df.columns)
-                    all_tables.append((f"Sayfa {i+1} Tablo {j+1} (Dijital)", df))
-            
-            # 2️⃣ OCR (sadece mevcutsa)
-            if OCR_AVAILABLE:
-                im = page.to_image(resolution=300).original
-                df_ocr = ocr_to_dataframe(im)
-                if df_ocr is not None and not df_ocr.empty:
-                    all_tables.append((f"Sayfa {i+1} Tablo (OCR)", df_ocr))
-    
+                    all_tables.append((f"Sayfa {i+1} Tablo {j+1}", df))
+
     if all_tables:
         export_option = st.radio("Excel dosyasını nasıl oluşturmak istersiniz?", 
                                  ("Her tablo ayrı sayfada", "Tüm tablolar tek sayfada"))
@@ -94,4 +58,4 @@ if uploaded_file is not None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
-        st.warning("PDF'de tablo bulunamadı veya OCR ile okunabilecek tablo yok.")
+        st.warning("PDF'de tablo bulunamadı veya taranmış tablo içeriyor.")
