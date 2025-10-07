@@ -20,3 +20,8 @@ openpyxl
 pdfplumber
 xlsxwriter
 python-docx
+streamlit
+pillow
+pandas
+xlsxwriter
+pytesseract
