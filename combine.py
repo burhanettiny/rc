@@ -1,10 +1,9 @@
 import streamlit as st
-from pypdf import PdfMerger, PdfReader, PdfWriter
+from pypdf import PdfMerger, PdfReader, PdfWriter # Sadece bir kere import ediyoruz
 from io import BytesIO
 from docx import Document
 import tempfile
 import os
-from pypdf import PdfMerger, PdfReader, PdfWriter
 # st.sortable_items kullanabilmek için gerekli import
 from streamlit_sortable import sortable_items 
 
