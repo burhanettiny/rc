@@ -1,66 +1,147 @@
 import streamlit as st
 from pypdf import PdfMerger
 from io import BytesIO
+from docx import Document
+import tempfile
+import os
 
-st.set_page_config(page_title="PDF Birleştirici", page_icon="📎", layout="centered")
-st.title("📎 PDF Birleştirici - Streamlit")
-st.markdown("Bu uygulama birden fazla PDF dosyasını yükleyip sırasını belirleyerek tek bir PDF haline getirir.")
+st.set_page_config(page_title="Belge Birleştirici", page_icon="📎", layout="centered")
+st.title("📎 PDF & Word Birleştirici - Streamlit")
+st.markdown("Bu uygulama PDF ve Word (DOCX) dosyalarını yükleyip sürükle-bırak yöntemiyle sırasını belirleyerek tek bir dosya haline getirir.")
 
 st.markdown("---")
 
-uploaded_files = st.file_uploader("PDF dosyalarını yükleyin (çoklu seçim mümkün)", type=['pdf'], accept_multiple_files=True)
+uploaded_files = st.file_uploader(
+    "PDF veya Word dosyalarını yükleyin (çoklu seçim mümkün)",
+    type=["pdf", "docx"],
+    accept_multiple_files=True
+)
 
+# Sürükle-bırak sıralama
 if uploaded_files:
-    # Dosyaları listele
-    st.subheader("Yüklenen dosyalar")
     file_names = [f.name for f in uploaded_files]
-    for i, name in enumerate(file_names, start=1):
-        st.write(f"{i}. {name}")
+    st.subheader("Dosya sırası (sürükleyerek değiştirin)")
 
-    st.info("Sırayı değiştirmek için dosya indekslerini virgülle ayırarak (ör. 2,1,3) girin. Varsayılan sıra yükleme sırasıdır.")
-    order_input = st.text_input("Birleştirme sırası (indekslerle)", value=",")
+    sorted_files = st.sortable_items(file_names, key="file_sort")
 
-    # Varsayılan sıra: 1,2,3... gösterimi
-    default_order = ",".join(str(i) for i in range(1, len(uploaded_files) + 1))
-    if order_input.strip() == ",":
-        order_input = default_order
-
-    try:
-        # Parse order
-        indices = [int(x.strip()) for x in order_input.split(",") if x.strip()]
-        if sorted(indices) != list(range(1, len(uploaded_files) + 1)):
-            st.warning("Girdiğiniz sıra bütün dosya indekslerini içermiyor veya tekrar içeriyor. Lütfen geçerli bir sıra girin.")
+    # PDF birleştirme
+    if st.button("🔀 PDF'leri Birleştir"):
+        pdf_files = [uploaded_files[file_names.index(name)] for name in sorted_files if name.lower().endswith(".pdf")]
+        if not pdf_files:
+            st.error("Birleştirilecek PDF dosyası bulunamadı.")
         else:
-            # Butona basılınca birleştir
-            if st.button("🔀 PDFleri Birleştir"):
+            try:
                 merger = PdfMerger()
-                try:
-                    for idx in indices:
-                        file_obj = uploaded_files[idx - 1]
-                        # file_obj: UploadedFile
-                        merger.append(file_obj)
+                for file in pdf_files:
+                    merger.append(file)
+                out = BytesIO()
+                merger.write(out)
+                merger.close()
+                out.seek(0)
 
-                    out = BytesIO()
-                    merger.write(out)
-                    merger.close()
-                    out.seek(0)
+                st.success("PDF başarıyla birleştirildi!")
+                st.download_button(
+                    label="📥 Birleşmiş PDF'i İndir",
+                    data=out,
+                    file_name="merged.pdf",
+                    mime="application/pdf",
+                )
+            except Exception as e:
+                st.error(f"PDF birleştirme hatası: {e}")
 
-                    st.success("PDF başarıyla birleştirildi!")
-                    merged_name = "merged_" + "_".join([uploaded_files[i-1].name.replace(' ', '_') for i in indices])
-                    if not merged_name.lower().endswith('.pdf'):
-                        merged_name += '.pdf'
+    # Word birleştirme (DOCX -> DOCX)
+    if st.button("📝 Word (DOCX) Birleştir"):
+        word_files = [uploaded_files[file_names.index(name)] for name in sorted_files if name.lower().endswith(".docx")]
+        if not word_files:
+            st.error("Birleştirilecek Word dosyası bulunamadı.")
+        else:
+            try:
+                merged_doc = Document()
+                first = True
+                for file in word_files:
+                    temp_path = tempfile.mktemp(suffix=".docx")
+                    with open(temp_path, "wb") as tmp:
+                        tmp.write(file.getbuffer())
+                    sub_doc = Document(temp_path)
 
-                    st.download_button(label="📥 Birleşmiş PDF'i İndir", data=out, file_name=merged_name, mime='application/pdf')
-                except Exception as e:
-                    st.error(f"Birleştirme sırasında hata oluştu: {e}")
-    except ValueError:
-        st.error("Sıra girdisini okurken hata: Lütfen sadece virgülle ayrılmış sayılar girin (ör. 1,2,3).")
+                    if first:
+                        for p in sub_doc.paragraphs:
+                            merged_doc.add_paragraph(p.text)
+                        first = False
+                    else:
+                        merged_doc.add_page_break()
+                        for p in sub_doc.paragraphs:
+                            merged_doc.add_paragraph(p.text)
+
+                    os.remove(temp_path)
+
+                out_path = tempfile.mktemp(suffix=".docx")
+                merged_doc.save(out_path)
+
+                with open(out_path, "rb") as f:
+                    st.success("Word belgeleri birleştirildi!")
+                    st.download_button(
+                        "📥 Birleşmiş Word Belgesini İndir",
+                        f.read(),
+                        "merged.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    )
+
+            except Exception as e:
+                st.error(f"Word birleştirme hatası: {e}")
+
+    # DOCX + PDF -> Tek PDF
+    if st.button("📄 DOCX + PDF → Tek PDF Birleştir"):
+        pdf_files = [uploaded_files[file_names.index(name)] for name in sorted_files if name.lower().endswith(".pdf")]
+        docx_files = [uploaded_files[file_names.index(name)] for name in sorted_files if name.lower().endswith(".docx")]
+
+        if not pdf_files and not docx_files:
+            st.error("PDF veya DOCX bulunamadı.")
+        else:
+            try:
+                import docx2pdf
+                temp_pdf_list = []
+
+                # DOCX → PDF dönüşümü
+                for file in docx_files:
+                    tmp_docx = tempfile.mktemp(suffix=".docx")
+                    with open(tmp_docx, "wb") as tmp:
+                        tmp.write(file.getbuffer())
+                    tmp_pdf = tempfile.mktemp(suffix=".pdf")
+                    docx2pdf.convert(tmp_docx, tmp_pdf)
+                    temp_pdf_list.append(tmp_pdf)
+
+                # PDF birleştirme
+                merger = PdfMerger()
+                # DOCX'ten gelen PDF'ler + Normal PDF'ler sıraya göre ekleniyor
+                for name in sorted_files:
+                    if name.lower().endswith(".pdf"):
+                        merger.append(uploaded_files[file_names.index(name)])
+                    else:
+                        tmp_pdf = temp_pdf_list.pop(0)
+                        merger.append(tmp_pdf)
+
+                out = BytesIO()
+                merger.write(out)
+                out.seek(0)
+                merger.close()
+
+                st.success("DOCX + PDF birlikte tek PDF olarak birleştirildi!")
+                st.download_button(
+                    "📥 Tek PDF Olarak İndir",
+                    out,
+                    "merged_all.pdf",
+                    mime="application/pdf",
+                )
+            except Exception as e:
+                st.error(f"Birleştirme hatası: {e}")
 
 else:
-    st.info("Başlamak için soldan veya yukarıdan PDF dosyaları yükleyin.")
+    st.info("Başlamak için PDF veya Word dosyaları yükleyin.")("Başlamak için PDF veya Word dosyaları yükleyin.")
 
 st.markdown("---")
-st.caption("Not: Sunucuda çok büyük dosyalar yüklenmesi bellek/kota sorunlarına yol açabilir. Yerel çalıştırmada daha yüksek limitler için Streamlit ayarlarınıza bakın.")
+st.caption("Not: Çok büyük dosyalarda bellek sınırları sorun oluşturabilir. Yerel çalıştırma daha stabil olabilir.")
 
-# Yardım / Gereksinimler
-st.markdown("**Gereksinimler**: `pip install streamlit pypdf`\n\n**Çalıştırma**: `streamlit run streamlit_pdf_birlestir.py`")
+st.markdown("**Gereksinimler**: `pip install streamlit pypdf python-docx sortable`
+
+**Çalıştırma**: `streamlit run streamlit_pdf_birlestir.py`")
