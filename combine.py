@@ -263,3 +263,4 @@ st.markdown("""
 - **DOCX+PDF birleştirme için**: `pip install docx2pdf` (Sisteminizde **Microsoft Word** veya **LibreOffice** kurulu olmalıdır, çünkü `docx2pdf` arkaplanda bu programları kullanır.)
 
 **Çalıştırma**:
+""") 👈 **Bu satırda sadece üç tırnak işareti (""") olmalıdır.**
