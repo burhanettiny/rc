@@ -27,3 +27,4 @@ xlsxwriter
 pytesseract
 PdfMerger
 pydf
+pip install pypdf
