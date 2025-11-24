@@ -4,10 +4,9 @@ from io import BytesIO
 from docx import Document
 import tempfile
 import os
+from pypdf import PdfMerger, PdfReader, PdfWriter
 # st.sortable_items kullanabilmek için gerekli import
 from streamlit_sortable import sortable_items 
-from pypdf import PdfMerger, PdfReader, PdfWriter
-
 
 # docx2pdf'i koşullu olarak import ediyoruz, yoksa hata vermez
 try:
