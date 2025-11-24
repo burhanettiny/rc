@@ -67,7 +67,7 @@ if uploaded_files:
         if not pdf_files:
             st.error("Birleştirilecek PDF dosyası bulunamadı.")
         else:
-    st.info("Başlamak için PDF veya Word dosyalarını yükleyin.")
+        st.info("Başlamak için PDF veya Word dosyalarını yükleyin.")
                 merger = PdfMerger()
                 for file in pdf_files:
                     merger.append(file)
