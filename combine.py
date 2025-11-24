@@ -9,7 +9,8 @@ from streamlit_sortable import sortable_items
 
 # docx2pdf'i koşullu olarak import ediyoruz, yoksa hata vermez
 try:
-    import docx2pdf
+    # docx2pdf kütüphanesi harici bir uygulama (Word/LibreOffice) gerektirir!
+    import docx2pdf 
     DOCX2PDF_AVAILABLE = True
 except ImportError:
     DOCX2PDF_AVAILABLE = False
@@ -26,7 +27,7 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-# Dosya yüklenmemişse bilgilendirme
+# Dosya yüklenmemişse bilgilendirme ve çıkış
 if not uploaded_files:
     st.info("Başlamak için PDF veya Word dosyalarını yükleyin.")
     st.markdown("---")
@@ -50,9 +51,9 @@ if not uploaded_files:
 file_names = [f.name for f in uploaded_files]
 st.subheader("Dosya sırası (sürükleyerek değiştirin)")
 
-# st.sortable_items'i kullanarak dosyaları sırala
+# Dosya adlarını sırala
 sorted_file_names = sortable_items(file_names, key="file_sort")
-# sorted_files, orijinal dosya nesnelerinin sıralanmış listesini içerir
+# Orijinal dosya nesnelerini sıralanmış listeye dönüştür
 sorted_files = [uploaded_files[file_names.index(name)] for name in sorted_file_names]
 
 st.markdown("---")
@@ -66,7 +67,7 @@ if pdf_files_in_list:
     if pdf_manage_name:
         try:
             pdf_file = uploaded_files[file_names.index(pdf_manage_name)]
-            # Dosya yükleyiciden gelen dosya nesnesini kullanmak için 'seek(0)' gerekli olabilir
+            # Dosyayı okumadan önce başlangıca git
             pdf_file.seek(0)
             reader = PdfReader(pdf_file)
             total_pages = len(reader.pages)
@@ -155,13 +156,13 @@ if st.button("📝 Word (DOCX) Birleştir", disabled=not word_files_to_merge):
                 # Geçici dosyayı oku
                 sub_doc = Document(temp_path)
 
-                # Yeni bir belge eklerken sayfa sonu ekle
+                # İlk belge değilse sayfa sonu ekle
                 if not first:
                     merged_doc.add_page_break()
                 
-                # Paragrafları birleştir
+                # Paragrafları birleştir (stil koruması dene)
                 for p in sub_doc.paragraphs:
-                    # Çalışma şekli basittir, daha karmaşık yapıları (tablolar, resimler vb.) korumaz.
+                    # Not: Bu yöntem, tablolar veya resimler gibi karmaşık Word yapılarını korumaz.
                     merged_doc.add_paragraph(p.text, style=p.style) 
                 
                 # İlk belge eklendi
@@ -200,6 +201,8 @@ if DOCX2PDF_AVAILABLE:
 
                 # DOCX → PDF dönüşümü
                 docx_files_to_convert = [f for f in sorted_files if f.name.lower().endswith(".docx")]
+                st.info(f"Dönüştürülüyor: {len(docx_files_to_convert)} DOCX dosyası PDF'e çevriliyor...")
+                
                 for file in docx_files_to_convert:
                     tmp_docx = tempfile.mktemp(suffix=".docx")
                     tmp_pdf = tempfile.mktemp(suffix=".pdf")
@@ -220,7 +223,7 @@ if DOCX2PDF_AVAILABLE:
                     if file.name.lower().endswith(".pdf"):
                         file.seek(0)
                         merger.append(file)
-                    else: # DOCX'ten dönüştürülmüş PDF'i ekle
+                    else: # DOCX'ten dönüştürülmüş PDF'i ekle (sırayı koruyarak)
                         merger.append(temp_pdf_list[pdf_index])
                         pdf_index += 1 
 
