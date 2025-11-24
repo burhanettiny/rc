@@ -26,5 +26,7 @@ pandas
 xlsxwriter
 pytesseract
 PdfMerger
-pydf
-pip install pypdf
+pypdf
+python-docx
+docx2pdf
+streamlit-sortable
